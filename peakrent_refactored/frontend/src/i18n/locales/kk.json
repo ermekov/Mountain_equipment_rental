@@ -1,0 +1,4 @@
+{
+  "nav": { "catalog": "Каталог", "ai": "AI ұсынысы", "about": "Біз туралы", "login": "Кіру", "profile": "Профиль" },
+  "common": { "loading": "Жүктелуде...", "error": "Қате", "back": "Артқа", "currency": "₸", "per_day": "₸/күн" }
+}

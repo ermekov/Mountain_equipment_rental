@@ -224,7 +224,7 @@ class ChatService:
         try:
             from openai import OpenAI
 
-            api_key = current_app.config.get("OPENAI_API_KEY", "")
+            api_key = current_app.config.get("OPENAI_API_KEY", "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")
             if not api_key:
                 return ChatService._fallback(messages)
 

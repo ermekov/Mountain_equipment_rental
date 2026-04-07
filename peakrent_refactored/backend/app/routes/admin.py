@@ -21,9 +21,12 @@ Blueprint: admin_bp → префикс /api/admin
 """
 
 from datetime import datetime, timedelta
+from pathlib import Path
+import uuid
 
 from flask import Blueprint, request, jsonify
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
 from sqlalchemy import func
 
 from ..extensions import db
@@ -31,6 +34,9 @@ from ..models import User, Equipment, Booking, BookingItem
 from ..utils.auth import admin_required, manager_required, make_token
 
 admin_bp = Blueprint("admin", __name__)
+
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+UPLOADS_DIR = Path(__file__).resolve().parents[3] / "frontend" / "public" / "uploads" / "products"
 
 
 # ─────────────────────────────────────────────────────────
@@ -233,6 +239,35 @@ def admin_list_products():
     """
     items = Equipment.query.order_by(Equipment.id).all()
     return jsonify([i.to_dict() for i in items]), 200
+
+
+@admin_bp.route("/upload-image", methods=["POST"])
+@admin_required
+def admin_upload_image():
+    """
+    Загружает изображение товара в локальную папку frontend/public/uploads/products.
+
+    FormData:
+        file=<image>
+    """
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify({"error": "Файл не передан"}), 400
+
+    original_name = secure_filename(file.filename)
+    extension = Path(original_name).suffix.lower()
+    if extension not in ALLOWED_IMAGE_EXTENSIONS:
+        return jsonify({"error": "Допустимы только JPG, PNG, WEBP и GIF"}), 400
+
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}{extension}"
+    target_path = UPLOADS_DIR / filename
+    file.save(target_path)
+
+    return jsonify({
+        "image_url": f"/uploads/products/{filename}",
+        "filename": filename,
+    }), 201
 
 
 # ─────────────────────────────────────────────────────────

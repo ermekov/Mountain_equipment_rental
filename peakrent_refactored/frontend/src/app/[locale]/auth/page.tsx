@@ -43,7 +43,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
   const sendOtp = useCallback(async () => {
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 11) {
-      toast.error(l === "ru" ? "Введите корректный номер" : "Enter valid phone");
+      toast.error(l === "ru" ? "Введите корректный номер" : l === "kk" ? "Дұрыс нөмір енгізіңіз" : "Enter valid phone");
       return;
     }
     setLoading(true);
@@ -52,7 +52,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
       setStep("otp");
       setCountdown(60);
       if (res.data.dev_code) toast.info(`DEV: код ${res.data.dev_code}`);
-      else toast.success(l === "ru" ? "SMS отправлено!" : "SMS sent!");
+      else toast.success(l === "ru" ? "SMS отправлено!" : l === "kk" ? "SMS жіберілді!" : "SMS sent!");
     } catch (e: any) {
       toast.error(e?.response?.data?.error ?? "Ошибка отправки SMS");
     } finally {
@@ -62,7 +62,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
 
   const verifyOtp = useCallback(async () => {
     if (otp.length < 6) {
-      toast.error(l === "ru" ? "Введите 6-значный код" : "Enter 6-digit code");
+      toast.error(l === "ru" ? "Введите 6-значный код" : l === "kk" ? "6 таңбалы кодты енгізіңіз" : "Enter 6-digit code");
       return;
     }
     setLoading(true);
@@ -70,10 +70,10 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
       const digits = phone.replace(/\D/g, "");
       const res = await authAPI.verifyOtp({ phone: "+" + digits, code: otp });
       setAuth(res.data.user, res.data.access_token);
-      toast.success(l === "ru" ? `Добро пожаловать, ${res.data.user.name}!` : `Welcome, ${res.data.user.name}!`);
+      toast.success(l === "ru" ? `Добро пожаловать, ${res.data.user.name}!` : l === "kk" ? `Қош келдіңіз, ${res.data.user.name}!` : `Welcome, ${res.data.user.name}!`);
       router.push(`/${l}`);
     } catch (e: any) {
-      toast.error(e?.response?.data?.error ?? (l === "ru" ? "Неверный код" : "Invalid code"));
+      toast.error(e?.response?.data?.error ?? (l === "ru" ? "Неверный код" : l === "kk" ? "Қате код" : "Invalid code"));
       setOtp("");
     } finally {
       setLoading(false);
@@ -106,13 +106,13 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
               </div>
               <h1 className="font-display font-extrabold text-xl text-white mb-1">
                 {step === "phone"
-                  ? (l === "ru" ? "Войти или зарегистрироваться" : "Sign In or Register")
-                  : (l === "ru" ? "Введите код из SMS" : "Enter SMS Code")}
+                  ? (l === "ru" ? "Войти или зарегистрироваться" : l === "kk" ? "Кіру немесе тіркелу" : "Sign In or Register")
+                  : (l === "ru" ? "Введите код из SMS" : l === "kk" ? "SMS кодын енгізіңіз" : "Enter SMS Code")}
               </h1>
               <p className="text-white/60 text-sm">
                 {step === "phone"
-                  ? (l === "ru" ? "Введите номер — отправим код" : "Enter number — we'll send a code")
-                  : (l === "ru" ? `Отправили на ${phone}` : `Sent to ${phone}`)}
+                  ? (l === "ru" ? "Введите номер — отправим код" : l === "kk" ? "Нөмірді енгізіңіз — код жібереміз" : "Enter number — we'll send a code")
+                  : (l === "ru" ? `Отправили на ${phone}` : l === "kk" ? `${phone} нөміріне жіберілді` : `Sent to ${phone}`)}
               </p>
             </div>
 
@@ -121,7 +121,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
                 <>
                   <div className="mb-4">
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                      {l === "ru" ? "Номер телефона" : "Phone Number"}
+                      {l === "ru" ? "Номер телефона" : l === "kk" ? "Телефон нөмірі" : "Phone Number"}
                     </label>
                     <input
                       type="tel"
@@ -139,7 +139,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
                     {loading ? (
                       <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                     ) : (
-                      l === "ru" ? "Получить код →" : "Get Code →"
+                      l === "ru" ? "Получить код →" : l === "kk" ? "Код алу →" : "Get Code →"
                     )}
                   </button>
                 </>
@@ -150,7 +150,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
                     className="flex items-center gap-1.5 text-slate-500 hover:text-navy text-sm mb-5 transition-colors"
                   >
                     <ArrowLeft className="w-4 h-4" />
-                    {l === "ru" ? "Изменить номер" : "Change number"}
+                    {l === "ru" ? "Изменить номер" : l === "kk" ? "Нөмірді өзгерту" : "Change number"}
                   </button>
 
                   {/* 6 боксов для OTP */}
@@ -190,14 +190,14 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
                   {loading && (
                     <div className="flex items-center justify-center gap-2 text-sm text-slate-500 mb-4">
                       <div className="w-4 h-4 border-2 border-ice/30 border-t-ice rounded-full animate-spin" />
-                      {l === "ru" ? "Проверяем код..." : "Verifying..."}
+                      {l === "ru" ? "Проверяем код..." : l === "kk" ? "Код тексерілуде..." : "Verifying..."}
                     </div>
                   )}
 
                   <div className="text-center">
                     {countdown > 0 ? (
                       <p className="text-sm text-slate-400">
-                        {l === "ru" ? `Повторная отправка через ${countdown} с` : `Resend in ${countdown}s`}
+                        {l === "ru" ? `Повторная отправка через ${countdown} с` : l === "kk" ? `${countdown} с кейін қайта жіберіледі` : `Resend in ${countdown}s`}
                       </p>
                     ) : (
                       <button
@@ -205,7 +205,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
                         className="flex items-center gap-1.5 mx-auto text-sm text-ice hover:text-ice-dark transition-colors"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
-                        {l === "ru" ? "Отправить повторно" : "Resend code"}
+                        {l === "ru" ? "Отправить повторно" : l === "kk" ? "Қайта жіберу" : "Resend code"}
                       </button>
                     )}
                   </div>
@@ -216,7 +216,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
 
           <p className="text-center mt-4 text-sm text-slate-400">
             <Link href={`/${l}`} className="hover:text-navy transition-colors">
-              ← {l === "ru" ? "Вернуться на главную" : "Back to home"}
+              ← {l === "ru" ? "Вернуться на главную" : l === "kk" ? "Басты бетке оралу" : "Back to home"}
             </Link>
           </p>
         </div>

@@ -63,6 +63,7 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
   // Форма добавления товара
   const [addForm, setAddForm]   = useState(EMPTY_FORM);
   const [adding,  setAdding]    = useState(false);
+  const [uploadingAddImage, setUploadingAddImage] = useState(false);
 
   // Какой товар сейчас редактируется (null = никакой)
   // editData хранит текущие значения полей редактируемой строки
@@ -72,6 +73,7 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
     stock: string; image_url: string; is_featured: boolean;
   }>({ name: "", description: "", price: "", stock: "", image_url: "", is_featured: false });
   const [saving, setSaving] = useState(false);
+  const [uploadingEditImage, setUploadingEditImage] = useState(false);
 
   // ── Вспомогательные ───────────────────────────────────────────────────────
   const getToken = () =>
@@ -81,6 +83,23 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
     "Content-Type": "application/json",
     Authorization: `Bearer ${getToken()}`,
   });
+
+  async function uploadImage(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${API}/admin/upload-image`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || "Ошибка загрузки файла");
+    return data.image_url as string;
+  }
 
   // ── Загрузка данных при входе на страницу ─────────────────────────────────
   useEffect(() => {
@@ -302,9 +321,33 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
                     </Field>
 
                     <Field label="URL фотографии">
-                      <input type="url" value={addForm.image_url}
-                        onChange={e => setAddForm({...addForm, image_url: e.target.value})}
-                        placeholder="https://..." className={input} />
+                      <div className="space-y-2">
+                        <input type="url" value={addForm.image_url}
+                          onChange={e => setAddForm({...addForm, image_url: e.target.value})}
+                          placeholder="https://... или /uploads/products/..." className={input} />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className={input}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingAddImage(true);
+                            try {
+                              const imageUrl = await uploadImage(file);
+                              setAddForm((prev) => ({ ...prev, image_url: imageUrl }));
+                            } catch (err: any) {
+                              alert(err?.message || "Ошибка загрузки файла");
+                            } finally {
+                              setUploadingAddImage(false);
+                              e.target.value = "";
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-gray-400">
+                          {uploadingAddImage ? "Загружаем файл..." : "Можно выбрать файл с ноутбука"}
+                        </p>
+                      </div>
                     </Field>
 
                     <div className="flex items-end">
@@ -376,6 +419,28 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
                                   <input value={editData.image_url}
                                     onChange={e => setEditData({...editData, image_url: e.target.value})}
                                     className={inputSm + " w-full"} placeholder="URL фото" />
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className={inputSm + " w-full"}
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      setUploadingEditImage(true);
+                                      try {
+                                        const imageUrl = await uploadImage(file);
+                                        setEditData((prev) => ({ ...prev, image_url: imageUrl }));
+                                      } catch (err: any) {
+                                        alert(err?.message || "Ошибка загрузки файла");
+                                      } finally {
+                                        setUploadingEditImage(false);
+                                        e.target.value = "";
+                                      }
+                                    }}
+                                  />
+                                  {uploadingEditImage && (
+                                    <p className="text-[11px] text-gray-400">Загружаем файл...</p>
+                                  )}
                                 </div>
                               ) : (
                                 <span className="font-medium text-gray-800">{p.name_ru}</span>

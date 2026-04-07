@@ -66,7 +66,7 @@ export default function CatalogPage({
               {l === "ru" ? "Каталог снаряжения" : l === "kk" ? "Жабдықтар каталогы" : "Equipment Catalog"}
             </h1>
             <p className="text-slate-500 text-sm mt-1">
-              {filtered.length} {l === "ru" ? "позиций доступно" : "items available"}
+              {filtered.length} {l === "ru" ? "позиций доступно" : l === "kk" ? "жабдық қолжетімді" : "items available"}
             </p>
           </div>
         </div>
@@ -77,12 +77,12 @@ export default function CatalogPage({
             <aside className="bg-white rounded-2xl border border-slate-200 p-5 h-fit lg:sticky lg:top-20">
               <h2 className="font-display font-bold text-navy mb-4 flex items-center gap-2 text-sm">
                 <SlidersHorizontal className="w-4 h-4" />
-                {l === "ru" ? "Фильтры" : "Filters"}
+                {l === "ru" ? "Фильтры" : l === "kk" ? "Сүзгілер" : "Filters"}
               </h2>
 
               <div className="mb-5">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-                  {l === "ru" ? "Активность" : "Activity"}
+                  {l === "ru" ? "Активность" : l === "kk" ? "Белсенділік" : "Activity"}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   <button
@@ -94,7 +94,7 @@ export default function CatalogPage({
                         : "bg-white text-slate-500 border-slate-200 hover:border-navy/40",
                     )}
                   >
-                    {l === "ru" ? "Все" : "All"}
+                    {l === "ru" ? "Все" : l === "kk" ? "Барлығы" : "All"}
                   </button>
                   {categories.map((c) => (
                     <button
@@ -115,7 +115,7 @@ export default function CatalogPage({
 
               <div className="mb-5">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-                  {l === "ru" ? "Макс. цена/день" : "Max price/day"}
+                  {l === "ru" ? "Макс. цена/день" : l === "kk" ? "Күндік макс. баға" : "Max price/day"}
                 </p>
                 <input
                   type="range" min={1000} max={50000} step={1000}
@@ -130,17 +130,17 @@ export default function CatalogPage({
 
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-                  {l === "ru" ? "Сортировка" : "Sort"}
+                  {l === "ru" ? "Сортировка" : l === "kk" ? "Сұрыптау" : "Sort"}
                 </p>
                 <select
                   value={sort}
                   onChange={(e) => setSort(e.target.value)}
                   className="input-base !py-2 text-sm"
                 >
-                  <option value="default">{l === "ru" ? "По умолчанию" : "Default"}</option>
-                  <option value="price_asc">{l === "ru" ? "Цена: дешевле" : "Price: low"}</option>
-                  <option value="price_desc">{l === "ru" ? "Цена: дороже" : "Price: high"}</option>
-                  <option value="rating">{l === "ru" ? "По рейтингу" : "By rating"}</option>
+                  <option value="default">{l === "ru" ? "По умолчанию" : l === "kk" ? "Әдепкі бойынша" : "Default"}</option>
+                  <option value="price_asc">{l === "ru" ? "Цена: дешевле" : l === "kk" ? "Баға: арзан" : "Price: low"}</option>
+                  <option value="price_desc">{l === "ru" ? "Цена: дороже" : l === "kk" ? "Баға: қымбат" : "Price: high"}</option>
+                  <option value="rating">{l === "ru" ? "По рейтингу" : l === "kk" ? "Рейтинг бойынша" : "By rating"}</option>
                 </select>
               </div>
             </aside>
@@ -152,13 +152,13 @@ export default function CatalogPage({
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder={l === "ru" ? "Поиск снаряжения..." : "Search equipment..."}
+                  placeholder={l === "ru" ? "Поиск снаряжения..." : l === "kk" ? "Жабдық іздеу..." : "Search equipment..."}
                   className="input-base !pl-10"
                 />
               </div>
 
               <p className="text-sm text-slate-500 mb-4">
-                {l === "ru" ? `Найдено: ${filtered.length} позиций` : `Found: ${filtered.length} items`}
+                {l === "ru" ? `Найдено: ${filtered.length} позиций` : l === "kk" ? `Табылды: ${filtered.length} жабдық` : `Found: ${filtered.length} items`}
               </p>
 
               {loading ? (
@@ -177,8 +177,8 @@ export default function CatalogPage({
               ) : filtered.length === 0 ? (
                 <div className="text-center py-20 text-slate-400">
                   <div className="text-5xl mb-4">🔍</div>
-                  <p className="font-medium">{l === "ru" ? "Снаряжение не найдено" : "Nothing found"}</p>
-                  <p className="text-sm mt-1">{l === "ru" ? "Попробуйте изменить фильтры" : "Try adjusting filters"}</p>
+                  <p className="font-medium">{l === "ru" ? "Снаряжение не найдено" : l === "kk" ? "Жабдық табылмады" : "Nothing found"}</p>
+                  <p className="text-sm mt-1">{l === "ru" ? "Попробуйте изменить фильтры" : l === "kk" ? "Сүзгілерді өзгертіп көріңіз" : "Try adjusting filters"}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -216,7 +216,7 @@ export default function CatalogPage({
                           <div className="flex items-center justify-between">
                             <div>
                               <span className="price-tag text-lg">{formatPrice(eq.price_per_day)}</span>
-                              <span className="text-slate-400 text-xs ml-1">/ {l === "ru" ? "день" : "day"}</span>
+                              <span className="text-slate-400 text-xs ml-1">/ {l === "ru" ? "день" : l === "kk" ? "күн" : "day"}</span>
                             </div>
                             <span className={cn(
                               "text-xs font-bold px-2 py-1 rounded-full",

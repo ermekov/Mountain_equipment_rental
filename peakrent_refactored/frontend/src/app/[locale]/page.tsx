@@ -110,16 +110,16 @@ export default async function HomePage({
                   href={`/${l}/ai`}
                   className="inline-flex items-center gap-2 bg-white/10 border border-white/25 text-white font-semibold text-base px-6 py-3.5 rounded-xl hover:bg-white/20 transition-all"
                 >
-                  ✨ {l === "ru" ? "AI-подбор" : "AI Picks"}
+                  ✨ {l === "ru" ? "AI-подбор" : l === "kk" ? "AI ұсынысы" : "AI Picks"}
                 </Link>
               </div>
 
               {/* Иконки доверия */}
               <div className="flex flex-wrap gap-5 pt-6 border-t border-white/15">
                 {[
-                  { icon: <Shield className="w-4 h-4" />, t: l === "ru" ? "Страховка включена" : "Insurance included" },
-                  { icon: <Clock  className="w-4 h-4" />, t: l === "ru" ? "Выдача 5 минут"     : "5-min pickup"       },
-                  { icon: <MapPin className="w-4 h-4" />, t: l === "ru" ? "2 пункта выдачи"    : "2 pickup points"    },
+                  { icon: <Shield className="w-4 h-4" />, t: l === "ru" ? "Страховка включена" : l === "kk" ? "Сақтандыру кіреді" : "Insurance included" },
+                  { icon: <Clock  className="w-4 h-4" />, t: l === "ru" ? "Выдача 5 минут"     : l === "kk" ? "5 минутта беру" : "5-min pickup" },
+                  { icon: <MapPin className="w-4 h-4" />, t: l === "ru" ? "2 пункта выдачи"    : l === "kk" ? "2 алу пункті" : "2 pickup points" },
                 ].map((it, i) => (
                   <div key={i} className="flex items-center gap-2 text-white/60 text-sm">
                     <span className="text-ice/80">{it.icon}</span>{it.t}
@@ -135,10 +135,10 @@ export default async function HomePage({
           <div className="container-page py-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                ["1 500+", l === "ru" ? "довольных клиентов"   : "happy clients"],
-                ["200+",   l === "ru" ? "единиц снаряжения"    : "gear items"],
-                ["4.9 ★",  l === "ru" ? "средний рейтинг"      : "average rating"],
-                ["24/7",   l === "ru" ? "онлайн-бронирование"  : "online booking"],
+                ["1 500+", l === "ru" ? "довольных клиентов"   : l === "kk" ? "риза клиент" : "happy clients"],
+                ["200+",   l === "ru" ? "единиц снаряжения"    : l === "kk" ? "жабдық бірлігі" : "gear items"],
+                ["4.9 ★",  l === "ru" ? "средний рейтинг"      : l === "kk" ? "орташа рейтинг" : "average rating"],
+                ["24/7",   l === "ru" ? "онлайн-бронирование"  : l === "kk" ? "онлайн брондау" : "online booking"],
               ].map(([v, lbl], i) => (
                 <div key={i} className="text-center">
                   <div className="font-display font-extrabold text-2xl text-navy">{v}</div>
@@ -157,7 +157,7 @@ export default async function HomePage({
                 {l === "ru" ? "По виду активности" : l === "kk" ? "Белсенділік бойынша" : "By Activity"}
               </h2>
               <p className="text-slate-500 text-sm">
-                {l === "ru" ? "Снаряжение под каждый горный маршрут" : "Gear for every mountain pursuit"}
+                {l === "ru" ? "Снаряжение под каждый горный маршрут" : l === "kk" ? "Әрбір тау бағытына сай жабдық" : "Gear for every mountain pursuit"}
               </p>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -193,22 +193,24 @@ export default async function HomePage({
                   <span className="text-ice text-xs font-bold uppercase tracking-wide">AI-рекомендатор</span>
                 </div>
                 <h2 className="text-white text-3xl font-extrabold mb-4 leading-tight">
-                  {l === "ru" ? "Не знаете что взять?" : "Not sure what to rent?"}
+                  {l === "ru" ? "Не знаете что взять?" : l === "kk" ? "Не аларыңызды білмей тұрсыз ба?" : "Not sure what to rent?"}
                 </h2>
                 <p className="text-white/60 text-sm leading-relaxed mb-6">
                   {l === "ru"
                     ? "AI анализирует погоду в Алматы, вашу активность и популярность снаряжения — подбирает идеальный комплект за секунды."
+                    : l === "kk"
+                    ? "AI Алматыдағы ауа райын, белсенділігіңізді және жабдық танымалдығын ескеріп, лайықты жинақты ұсынады."
                     : "AI considers weather, your activity, and gear popularity to pick the perfect kit."}
                 </p>
                 <Link href={`/${l}/ai`} className="btn-primary !bg-ice group">
                   <Sparkles className="w-4 h-4" />
-                  {l === "ru" ? "Подобрать снаряжение" : "Get Recommendations"}
+                  {l === "ru" ? "Подобрать снаряжение" : l === "kk" ? "Жабдықты таңдау" : "Get Recommendations"}
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </div>
               <div className="bg-white/10 border border-white/20 rounded-3xl p-6">
                 <p className="text-white/70 text-xs font-bold uppercase tracking-wide mb-4">
-                  {l === "ru" ? "Выберите активность:" : "Choose activity:"}
+                  {l === "ru" ? "Выберите активность:" : l === "kk" ? "Белсенділікті таңдаңыз:" : "Choose activity:"}
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {ACTIVITIES.slice(0, 6).map((act) => (
@@ -234,14 +236,14 @@ export default async function HomePage({
               <div className="flex items-end justify-between mb-7">
                 <div>
                   <h2 className="text-3xl font-extrabold text-navy mb-1">
-                    {l === "ru" ? "Популярное снаряжение" : "Popular Equipment"}
+                    {l === "ru" ? "Популярное снаряжение" : l === "kk" ? "Танымал жабдықтар" : "Popular Equipment"}
                   </h2>
                   <p className="text-slate-500 text-sm">
-                    {l === "ru" ? "Самые востребованные позиции сезона" : "Top picks this season"}
+                    {l === "ru" ? "Самые востребованные позиции сезона" : l === "kk" ? "Маусымның ең сұраныстағы жабдықтары" : "Top picks this season"}
                   </p>
                 </div>
                 <Link href={`/${l}/catalog`} className="btn-secondary group text-sm">
-                  {l === "ru" ? "Все позиции" : "View all"}
+                  {l === "ru" ? "Все позиции" : l === "kk" ? "Барлығын көру" : "View all"}
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </div>
@@ -274,10 +276,10 @@ export default async function HomePage({
                             : "bg-green-50 text-green-700"
                           }`}>
                             {eq.stock === 0
-                              ? (l === "ru" ? "Нет" : "N/A")
+                              ? (l === "ru" ? "Нет" : l === "kk" ? "Жоқ" : "N/A")
                               : eq.stock <= 2
-                              ? (l === "ru" ? `Осталось ${eq.stock}` : `${eq.stock} left`)
-                              : (l === "ru" ? "Есть" : "Available")}
+                              ? (l === "ru" ? `Осталось ${eq.stock}` : l === "kk" ? `${eq.stock} қалды` : `${eq.stock} left`)
+                              : (l === "ru" ? "Есть" : l === "kk" ? "Бар" : "Available")}
                           </span>
                         </div>
                       </div>
@@ -289,10 +291,10 @@ export default async function HomePage({
                         <div className="flex items-center justify-between">
                           <div>
                             <span className="price-tag text-xl">{formatPrice(eq.price_per_day)}</span>
-                            <span className="text-slate-400 text-xs ml-1">/ {l === "ru" ? "день" : "day"}</span>
+                            <span className="text-slate-400 text-xs ml-1">/ {l === "ru" ? "день" : l === "kk" ? "күн" : "day"}</span>
                           </div>
                           <span className="text-xs font-semibold text-ice bg-ice-pale px-3 py-1.5 rounded-lg">
-                            {l === "ru" ? "Арендовать" : "Rent"}
+                            {l === "ru" ? "Арендовать" : l === "kk" ? "Жалға алу" : "Rent"}
                           </span>
                         </div>
                       </div>
@@ -309,10 +311,10 @@ export default async function HomePage({
           <div className="container-page">
             <div className="text-center mb-10">
               <h2 className="text-3xl font-extrabold text-navy mb-2">
-                {l === "ru" ? "Как это работает" : "How It Works"}
+                {l === "ru" ? "Как это работает" : l === "kk" ? "Бұл қалай жұмыс істейді" : "How It Works"}
               </h2>
               <p className="text-slate-500 text-sm">
-                {l === "ru" ? "От выбора до старта за 10 минут" : "From selection to start in 10 minutes"}
+                {l === "ru" ? "От выбора до старта за 10 минут" : l === "kk" ? "Таңдаудан бастауға дейін 10 минут" : "From selection to start in 10 minutes"}
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -331,7 +333,7 @@ export default async function HomePage({
             </div>
             <div className="text-center mt-8">
               <Link href={`/${l}/catalog`} className="btn-primary !px-8 !py-3.5 !text-base">
-                {l === "ru" ? "Начать аренду" : "Start Renting"}
+                {l === "ru" ? "Начать аренду" : l === "kk" ? "Жалға алуды бастау" : "Start Renting"}
               </Link>
             </div>
           </div>
@@ -354,21 +356,21 @@ export default async function HomePage({
               </div>
               {[
                 {
-                  title: l === "ru" ? "Снаряжение" : "Equipment",
+                  title: l === "ru" ? "Снаряжение" : l === "kk" ? "Жабдықтар" : "Equipment",
                   links: ACTIVITIES.slice(0, 3).map((a) => ({
                     href: `/${l}/catalog?category=${a.slug}`,
                     label: actName(a),
                   })),
                 },
                 {
-                  title: l === "ru" ? "Сервис" : "Service",
+                  title: l === "ru" ? "Сервис" : l === "kk" ? "Қызмет" : "Service",
                   links: [
-                    { href: `/${l}/ai`,   label: l === "ru" ? "AI-подбор" : "AI Picks" },
-                    { href: `/${l}/auth`, label: l === "ru" ? "Войти"     : "Sign In"   },
+                    { href: `/${l}/ai`,   label: l === "ru" ? "AI-подбор" : l === "kk" ? "AI ұсынысы" : "AI Picks" },
+                    { href: `/${l}/auth`, label: l === "ru" ? "Войти"     : l === "kk" ? "Кіру" : "Sign In"   },
                   ],
                 },
                 {
-                  title: l === "ru" ? "Контакты" : "Contacts",
+                  title: l === "ru" ? "Контакты" : l === "kk" ? "Байланыс" : "Contacts",
                   links: [
                     { href: "tel:+77071234567",       label: "+7 (707) 123-45-67"   },
                     { href: "mailto:hello@peakrent.kz", label: "hello@peakrent.kz" },

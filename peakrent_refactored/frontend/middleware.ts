@@ -11,7 +11,7 @@ const intlMiddleware = createMiddleware({
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const withoutLocale = pathname.replace(/^\/(ru|kk|en)/, "") || "/";
-  const PROTECTED = ["/profile", "/admin"];
+  const PROTECTED = ["/profile", "/admin", "/manager"];
 
   if (PROTECTED.some((p) => withoutLocale.startsWith(p))) {
     const token = request.cookies.get("pr_token")?.value;

@@ -33,7 +33,7 @@ export default function AIPage({ params }: { params: { locale: string } }) {
   const getLabel = (a: typeof ACTS[0]) => l === "kk" ? a.kk : l === "en" ? a.en : a.ru;
 
   const handleSearch = useCallback(async () => {
-    if (!activity) { toast.error(l === "ru" ? "Выберите активность" : "Select activity"); return; }
+    if (!activity) { toast.error(l === "ru" ? "Выберите активность" : l === "kk" ? "Белсенділікті таңдаңыз" : "Select activity"); return; }
     setLoading(true);
     try {
       const res = await recommendAPI.get({ activity, city, level, limit: 6 });
@@ -60,22 +60,24 @@ export default function AIPage({ params }: { params: { locale: string } }) {
               <div className="inline-flex items-center gap-2 bg-ice/15 border border-ice/30 rounded-full px-4 py-1.5 mb-4">
                 <Sparkles className="w-4 h-4 text-ice" />
                 <span className="text-ice text-sm font-semibold">
-                  {l === "ru" ? "Персональный AI-рекомендатор" : "Personal AI Advisor"}
+                  {l === "ru" ? "Персональный AI-рекомендатор" : l === "kk" ? "Жеке AI кеңесші" : "Personal AI Advisor"}
                 </span>
               </div>
               <h1 className="font-display text-white text-3xl md:text-4xl font-extrabold mb-3">
-                {l === "ru" ? "Подберём снаряжение для вашей поездки" : "Find the Right Gear for Your Trip"}
+                {l === "ru" ? "Подберём снаряжение для вашей поездки" : l === "kk" ? "Сапарыңызға лайық жабдық табайық" : "Find the Right Gear for Your Trip"}
               </h1>
               <p className="text-white/60 text-sm">
                 {l === "ru"
                   ? "AI учитывает погоду, вашу активность и популярность снаряжения"
+                  : l === "kk"
+                  ? "AI ауа райын, белсенділікті және жабдық танымалдығын ескереді"
                   : "AI considers weather, activity and gear popularity"}
               </p>
             </div>
 
             <div className="bg-white/10 border border-white/20 rounded-3xl p-6">
               <p className="text-white/70 text-xs font-bold uppercase tracking-wide mb-3">
-                {l === "ru" ? "Ваша активность:" : "Activity:"}
+                {l === "ru" ? "Ваша активность:" : l === "kk" ? "Белсенділігіңіз:" : "Activity:"}
               </p>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">
                 {ACTS.map((a) => (
@@ -98,7 +100,7 @@ export default function AIPage({ params }: { params: { locale: string } }) {
               <div className="grid grid-cols-2 gap-3 mb-5">
                 <div>
                   <p className="text-white/60 text-xs font-bold uppercase tracking-wide mb-1.5">
-                    {l === "ru" ? "Город" : "City"}
+                    {l === "ru" ? "Город" : l === "kk" ? "Қала" : "City"}
                   </p>
                   <select
                     value={city}
@@ -112,16 +114,16 @@ export default function AIPage({ params }: { params: { locale: string } }) {
                 </div>
                 <div>
                   <p className="text-white/60 text-xs font-bold uppercase tracking-wide mb-1.5">
-                    {l === "ru" ? "Уровень" : "Level"}
+                    {l === "ru" ? "Уровень" : l === "kk" ? "Деңгей" : "Level"}
                   </p>
                   <select
                     value={level}
                     onChange={(e) => setLevel(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl border border-white/20 bg-white/10 text-white text-sm [&>option]:text-navy [&>option]:bg-white"
                   >
-                    <option value="beginner">{l === "ru" ? "Начинающий" : "Beginner"}</option>
-                    <option value="intermediate">{l === "ru" ? "Средний" : "Intermediate"}</option>
-                    <option value="advanced">{l === "ru" ? "Продвинутый" : "Advanced"}</option>
+                    <option value="beginner">{l === "ru" ? "Начинающий" : l === "kk" ? "Бастаушы" : "Beginner"}</option>
+                    <option value="intermediate">{l === "ru" ? "Средний" : l === "kk" ? "Орташа" : "Intermediate"}</option>
+                    <option value="advanced">{l === "ru" ? "Продвинутый" : l === "kk" ? "Жетік" : "Advanced"}</option>
                   </select>
                 </div>
               </div>
@@ -139,12 +141,12 @@ export default function AIPage({ params }: { params: { locale: string } }) {
                 {loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                    {l === "ru" ? "Анализируем..." : "Analyzing..."}
+                    {l === "ru" ? "Анализируем..." : l === "kk" ? "Талдап жатырмыз..." : "Analyzing..."}
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    {l === "ru" ? "Подобрать снаряжение" : "Get Recommendations"}
+                    {l === "ru" ? "Подобрать снаряжение" : l === "kk" ? "Жабдықты таңдау" : "Get Recommendations"}
                   </>
                 )}
               </button>
@@ -168,7 +170,7 @@ export default function AIPage({ params }: { params: { locale: string } }) {
                     <span className="text-sm font-normal text-ice-dark">{result.weather}</span>
                   </div>
                   <p className="text-xs text-ice-dark">
-                    {result.city} · {l === "ru" ? "учтено в рекомендациях" : "used in recommendations"}
+                    {result.city} · {l === "ru" ? "учтено в рекомендациях" : l === "kk" ? "ұсыныстарда ескерілді" : "used in recommendations"}
                   </p>
                 </div>
               </div>
@@ -177,22 +179,22 @@ export default function AIPage({ params }: { params: { locale: string } }) {
             <div className="flex items-center justify-between mb-5 flex-wrap gap-4">
               <div>
                 <h2 className="font-display text-2xl font-extrabold text-navy">
-                  {l === "ru" ? "Рекомендуем для вас" : "Recommended for You"}
+                  {l === "ru" ? "Рекомендуем для вас" : l === "kk" ? "Сізге ұсынамыз" : "Recommended for You"}
                 </h2>
                 <p className="text-slate-500 text-sm">
-                  {result.items.length} {l === "ru" ? "позиций" : "items"}
+                  {result.items.length} {l === "ru" ? "позиций" : l === "kk" ? "жабдық" : "items"}
                 </p>
               </div>
               {result.items.length > 0 && (
                 <button
                   onClick={() => {
                     result.items.forEach((it) => addToCart(it as any, 1, null, 1));
-                    toast.success(`${result.items.length} ${l === "ru" ? "добавлено в корзину" : "added to cart"}`);
+                    toast.success(`${result.items.length} ${l === "ru" ? "добавлено в корзину" : l === "kk" ? "себетке қосылды" : "added to cart"}`);
                   }}
                   className="btn-secondary flex items-center gap-2 text-sm"
                 >
                   <ShoppingCart className="w-4 h-4" />
-                  {l === "ru" ? `Добавить всё (${result.items.length})` : `Add All (${result.items.length})`}
+                  {l === "ru" ? `Добавить всё (${result.items.length})` : l === "kk" ? `Барлығын қосу (${result.items.length})` : `Add All (${result.items.length})`}
                 </button>
               )}
             </div>
@@ -233,13 +235,13 @@ export default function AIPage({ params }: { params: { locale: string } }) {
                       <div className="mt-auto flex items-center justify-between gap-2">
                         <div>
                           <span className="price-tag text-lg">{formatPrice(item.price_per_day)}</span>
-                          <span className="text-slate-400 text-xs ml-1">/ {l === "ru" ? "д." : "d."}</span>
+                          <span className="text-slate-400 text-xs ml-1">/ {l === "ru" ? "д." : l === "kk" ? "к." : "d."}</span>
                         </div>
                         <div className="flex gap-1.5">
                           <button
                             onClick={() => {
                               addToCart(item as any, 1, null, 1);
-                              toast.success(n + (l === "ru" ? " добавлен" : " added"));
+                              toast.success(n + (l === "ru" ? " добавлен" : l === "kk" ? " қосылды" : " added"));
                             }}
                             className="w-8 h-8 rounded-lg bg-ice-pale hover:bg-ice text-ice hover:text-white transition-all flex items-center justify-center"
                           >
@@ -249,7 +251,7 @@ export default function AIPage({ params }: { params: { locale: string } }) {
                             href={`/${l}/equipment/${item.slug}`}
                             className="btn-primary !py-1.5 !px-3 !text-xs group"
                           >
-                            {l === "ru" ? "Арендовать" : "Book"}
+                            {l === "ru" ? "Арендовать" : l === "kk" ? "Жалға алу" : "Book"}
                             <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
                           </Link>
                         </div>
@@ -264,7 +266,7 @@ export default function AIPage({ params }: { params: { locale: string } }) {
               <div className="text-center mt-10">
                 <Link href={`/${l}/checkout`} className="btn-primary !px-8 !py-4 !text-base group inline-flex">
                   <ShoppingCart className="w-5 h-5" />
-                  {l === "ru" ? `Оформить аренду (${cartCount})` : `Checkout (${cartCount})`}
+                  {l === "ru" ? `Оформить аренду (${cartCount})` : l === "kk" ? `Жалға алуды рәсімдеу (${cartCount})` : `Checkout (${cartCount})`}
                   <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </div>

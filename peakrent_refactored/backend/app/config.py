@@ -50,13 +50,13 @@ class Config:
 
     # ── OpenAI GPT-4o-mini ────────────────────────────────────────────────────
     # Используется для генерации персональных объяснений рекомендаций
-    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "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")
     OPENAI_MODEL   = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
     # ── OpenWeatherMap API ────────────────────────────────────────────────────
     # Бесплатный тариф: https://openweathermap.org/api
     # Используется для получения погоды в Алматы (влияет на AI-рекомендации)
-    WEATHER_KEY = os.environ.get("OPENWEATHER_API_KEY", "")
+    WEATHER_KEY = os.environ.get("OPENWEATHER_API_KEY", "6fb1cb8bc5a3a1f1521130709fcfefaf")
 
     # ── Kaspi Business API ────────────────────────────────────────────────────
     # Подключается через business.kaspi.kz (верификация 5–14 дней)

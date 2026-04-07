@@ -103,11 +103,11 @@ export default function EquipmentPage({
           {/* Хлебные крошки */}
           <nav className="flex items-center gap-2 text-sm text-slate-500 mb-5">
             <Link href={`/${l}`} className="hover:text-navy transition-colors">
-              {l === "ru" ? "Главная" : "Home"}
+              {l === "ru" ? "Главная" : l === "kk" ? "Басты бет" : "Home"}
             </Link>
             <ChevronLeft className="w-3 h-3 rotate-180" />
             <Link href={`/${l}/catalog`} className="hover:text-navy transition-colors">
-              {l === "ru" ? "Каталог" : "Catalog"}
+              {l === "ru" ? "Каталог" : l === "kk" ? "Каталог" : "Catalog"}
             </Link>
             <ChevronLeft className="w-3 h-3 rotate-180" />
             <span className="text-navy font-medium truncate max-w-[200px]">{name}</span>
@@ -138,10 +138,10 @@ export default function EquipmentPage({
                     : "bg-green-50 text-green-700",
                   )}>
                     {eq.stock === 0
-                      ? (l === "ru" ? "Нет в наличии" : "Out of stock")
+                      ? (l === "ru" ? "Нет в наличии" : l === "kk" ? "Қолжетімсіз" : "Out of stock")
                       : eq.stock <= 2
-                      ? (l === "ru" ? `Осталось ${eq.stock} шт.` : `${eq.stock} left`)
-                      : (l === "ru" ? "Есть в наличии" : "In stock")}
+                      ? (l === "ru" ? `Осталось ${eq.stock} шт.` : l === "kk" ? `${eq.stock} дана қалды` : `${eq.stock} left`)
+                      : (l === "ru" ? "Есть в наличии" : l === "kk" ? "Қолжетімді" : "In stock")}
                   </span>
                 </div>
               </div>
@@ -168,7 +168,7 @@ export default function EquipmentPage({
                 )}
                 <div>
                   <span className="price-tag text-3xl">{formatPrice(eq.price_per_day)}</span>
-                  <span className="text-slate-400 text-sm ml-1">/ {l === "ru" ? "день" : "day"}</span>
+                  <span className="text-slate-400 text-sm ml-1">/ {l === "ru" ? "день" : l === "kk" ? "күн" : "day"}</span>
                 </div>
               </div>
 
@@ -184,7 +184,7 @@ export default function EquipmentPage({
               {/* Описание */}
               <div className="mb-6">
                 <h2 className="font-display font-bold text-lg text-navy mb-2">
-                  {l === "ru" ? "Описание" : "Description"}
+                  {l === "ru" ? "Описание" : l === "kk" ? "Сипаттама" : "Description"}
                 </h2>
                 <p className="text-slate-700 leading-relaxed text-sm">{desc}</p>
               </div>
@@ -192,10 +192,10 @@ export default function EquipmentPage({
               {/* Бейджи доверия */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                 {[
-                  { icon: <Shield className="w-5 h-5 text-green-600" />, label: l === "ru" ? "Страховка"  : "Insurance", sub: l === "ru" ? "по запросу"  : "available" },
-                  { icon: <Clock  className="w-5 h-5 text-ice"        />, label: l === "ru" ? "Выдача"     : "Pickup",    sub: l === "ru" ? "5 минут"     : "5 minutes" },
-                  { icon: <Truck  className="w-5 h-5 text-purple-500" />, label: l === "ru" ? "Доставка"   : "Delivery",  sub: l === "ru" ? "на курорт"   : "to resort" },
-                  { icon: <span className="text-lg">💰</span>,             label: l === "ru" ? "Залог"      : "Deposit",   sub: formatPrice(eq.deposit ?? 0) },
+                  { icon: <Shield className="w-5 h-5 text-green-600" />, label: l === "ru" ? "Страховка"  : l === "kk" ? "Сақтандыру" : "Insurance", sub: l === "ru" ? "по запросу"  : l === "kk" ? "сұраныс бойынша" : "available" },
+                  { icon: <Clock  className="w-5 h-5 text-ice"        />, label: l === "ru" ? "Выдача"     : l === "kk" ? "Беру" : "Pickup",    sub: l === "ru" ? "5 минут"     : l === "kk" ? "5 минут" : "5 minutes" },
+                  { icon: <Truck  className="w-5 h-5 text-purple-500" />, label: l === "ru" ? "Доставка"   : l === "kk" ? "Жеткізу" : "Delivery",  sub: l === "ru" ? "на курорт"   : l === "kk" ? "курортқа" : "to resort" },
+                  { icon: <span className="text-lg">💰</span>,             label: l === "ru" ? "Залог"      : l === "kk" ? "Кепілақы" : "Deposit",   sub: formatPrice(eq.deposit ?? 0) },
                 ].map((b, i) => (
                   <div key={i} className="flex flex-col items-center text-center gap-1 p-3 bg-white rounded-xl border border-slate-200">
                     {b.icon}
@@ -209,7 +209,7 @@ export default function EquipmentPage({
               {related.length > 0 && (
                 <div className="mb-6">
                   <h2 className="font-display font-bold text-lg text-navy mb-3">
-                    {l === "ru" ? "Часто берут вместе" : "Frequently Rented Together"}
+                    {l === "ru" ? "Часто берут вместе" : l === "kk" ? "Жиі бірге алынады" : "Frequently Rented Together"}
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {related.map((rel) => {
@@ -231,7 +231,7 @@ export default function EquipmentPage({
                             <p className="font-display font-bold text-sm text-navy truncate group-hover:text-ice transition-colors">{rn}</p>
                             <p className="text-sm mt-0.5">
                               <span className="price-tag text-base">{formatPrice(rel.price_per_day)}</span>
-                              <span className="text-slate-400 text-xs ml-1">/ {l === "ru" ? "день" : "day"}</span>
+                              <span className="text-slate-400 text-xs ml-1">/ {l === "ru" ? "день" : l === "kk" ? "күн" : "day"}</span>
                             </p>
                           </div>
                         </Link>
@@ -245,7 +245,7 @@ export default function EquipmentPage({
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-display font-bold text-lg text-navy">
-                    {l === "ru" ? "Отзывы" : "Reviews"}
+                    {l === "ru" ? "Отзывы" : l === "kk" ? "Пікірлер" : "Reviews"}
                     {reviews.length > 0 && (
                       <span className="text-slate-500 font-normal text-base ml-2">({reviews.length})</span>
                     )}
@@ -254,7 +254,7 @@ export default function EquipmentPage({
                 {reviews.length === 0 ? (
                   <div className="text-center py-8 bg-surface rounded-2xl border border-slate-200">
                     <Star className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-slate-400 text-sm">{l === "ru" ? "Отзывов пока нет" : "No reviews yet"}</p>
+                    <p className="text-slate-400 text-sm">{l === "ru" ? "Отзывов пока нет" : l === "kk" ? "Әзірге пікір жоқ" : "No reviews yet"}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -302,7 +302,7 @@ export default function EquipmentPage({
                   )}
                   <div className="mt-2 flex items-baseline gap-1">
                     <span className="price-tag text-4xl">{formatPrice(eq.price_per_day)}</span>
-                    <span className="text-slate-400 text-sm">/ {l === "ru" ? "день" : "day"}</span>
+                    <span className="text-slate-400 text-sm">/ {l === "ru" ? "день" : l === "kk" ? "күн" : "day"}</span>
                   </div>
                 </div>
 
@@ -310,7 +310,7 @@ export default function EquipmentPage({
                   {/* Даты */}
                   <div>
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                      {l === "ru" ? "Даты аренды" : "Rental dates"}
+                      {l === "ru" ? "Даты аренды" : l === "kk" ? "Жалдау күндері" : "Rental dates"}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <input type="date" value={start} min={today}
@@ -333,7 +333,7 @@ export default function EquipmentPage({
                   {eq.size_type !== "none" && eq.sizes.length > 0 && (
                     <div>
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                        {l === "ru" ? "Размер" : "Size"}
+                        {l === "ru" ? "Размер" : l === "kk" ? "Өлшем" : "Size"}
                       </p>
                       <div className="grid grid-cols-4 gap-1.5">
                         {eq.sizes.map((s) => (
@@ -357,7 +357,7 @@ export default function EquipmentPage({
                   {/* Количество */}
                   <div>
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                      {l === "ru" ? "Количество" : "Quantity"}
+                      {l === "ru" ? "Количество" : l === "kk" ? "Саны" : "Quantity"}
                     </p>
                     <div className="flex items-center gap-3">
                       <button
@@ -382,10 +382,10 @@ export default function EquipmentPage({
                         : "text-green-600",
                       )}>
                         {eq.stock === 0
-                          ? (l === "ru" ? "Нет" : "N/A")
+                          ? (l === "ru" ? "Нет" : l === "kk" ? "Жоқ" : "N/A")
                           : eq.stock <= 2
-                          ? (l === "ru" ? `Осталось ${eq.stock}` : `${eq.stock} left`)
-                          : (l === "ru" ? `${eq.stock} доступно` : `${eq.stock} available`)}
+                          ? (l === "ru" ? `Осталось ${eq.stock}` : l === "kk" ? `${eq.stock} қалды` : `${eq.stock} left`)
+                          : (l === "ru" ? `${eq.stock} доступно` : l === "kk" ? `${eq.stock} қолжетімді` : `${eq.stock} available`)}
                       </span>
                     </div>
                   </div>
@@ -411,10 +411,10 @@ export default function EquipmentPage({
                     <div>
                       <div className="flex items-center gap-1.5 text-sm font-semibold text-navy">
                         <Shield className="w-3.5 h-3.5 text-green-600" />
-                        {l === "ru" ? "Страховка от повреждений" : "Damage Insurance"}
+                        {l === "ru" ? "Страховка от повреждений" : l === "kk" ? "Зақымданудан сақтандыру" : "Damage Insurance"}
                       </div>
                       <span className="text-xs text-slate-500">
-                        +{formatPrice(1500)} {l === "ru" ? "в день" : "/ day"}
+                        +{formatPrice(1500)} {l === "ru" ? "в день" : l === "kk" ? "күніне" : "/ day"}
                       </span>
                     </div>
                   </label>
@@ -424,7 +424,7 @@ export default function EquipmentPage({
                     <div className="bg-surface rounded-xl p-4 space-y-1.5 border border-slate-100">
                       <div className="flex justify-between text-sm text-slate-500">
                         <span>
-                          {formatPrice(eq.price_per_day)} × {days} {l === "ru" ? "дн." : "d."} × {qty}
+                          {formatPrice(eq.price_per_day)} × {days} {l === "ru" ? "дн." : l === "kk" ? "к." : "d."} × {qty}
                         </span>
                         <span className="text-navy font-medium">
                           {formatPrice(eq.price_per_day * days * qty)}
@@ -432,13 +432,13 @@ export default function EquipmentPage({
                       </div>
                       {insurance && (
                         <div className="flex justify-between text-sm text-slate-500">
-                          <span>{l === "ru" ? "Страховка" : "Insurance"}</span>
+                          <span>{l === "ru" ? "Страховка" : l === "kk" ? "Сақтандыру" : "Insurance"}</span>
                           <span className="text-navy font-medium">{formatPrice(1500 * days * qty)}</span>
                         </div>
                       )}
                       <div className="flex justify-between pt-2 border-t border-slate-200">
                         <span className="font-display font-bold text-navy">
-                          {l === "ru" ? "Итого" : "Total"}
+                          {l === "ru" ? "Итого" : l === "kk" ? "Барлығы" : "Total"}
                         </span>
                         <span className="font-display font-extrabold text-xl text-ice">
                           {formatPrice(total)}
@@ -450,6 +450,8 @@ export default function EquipmentPage({
                           <span>
                             {l === "ru"
                               ? `Залог ${formatPrice(eq.deposit)} — возвращается при возврате`
+                              : l === "kk"
+                              ? `Кепілақы ${formatPrice(eq.deposit)} — қайтарғанда беріледі`
                               : `Deposit ${formatPrice(eq.deposit)} — returned on return`}
                           </span>
                         </div>
@@ -469,22 +471,22 @@ export default function EquipmentPage({
                     {submitting ? (
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        {l === "ru" ? "Оформляем..." : "Processing..."}
+                        {l === "ru" ? "Оформляем..." : l === "kk" ? "Рәсімделуде..." : "Processing..."}
                       </div>
                     ) : eq.stock === 0 ? (
-                      l === "ru" ? "Нет в наличии" : "Out of Stock"
+                      l === "ru" ? "Нет в наличии" : l === "kk" ? "Қолжетімсіз" : "Out of Stock"
                     ) : !start || !end ? (
-                      l === "ru" ? "Выберите даты" : "Select dates"
+                      l === "ru" ? "Выберите даты" : l === "kk" ? "Күндерді таңдаңыз" : "Select dates"
                     ) : (
                       <span className="flex items-center gap-2">
-                        {l === "ru" ? "Перейти к оплате" : "Proceed to Payment"}
+                        {l === "ru" ? "Перейти к оплате" : l === "kk" ? "Төлемге өту" : "Proceed to Payment"}
                         <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                       </span>
                     )}
                   </button>
 
                   <p className="text-center text-xs text-slate-400">
-                    💳 Kaspi QR · Visa/MC · {l === "ru" ? "Наличные" : "Cash"}
+                    💳 Kaspi QR · Visa/MC · {l === "ru" ? "Наличные" : l === "kk" ? "Қолма-қол" : "Cash"}
                   </p>
                 </div>
               </div>

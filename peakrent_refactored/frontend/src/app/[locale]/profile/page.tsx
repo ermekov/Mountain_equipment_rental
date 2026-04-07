@@ -38,11 +38,11 @@ export default function ProfilePage({ params }: { params: { locale: string } }) 
                           .reduce((s, b) => s + b.total_price, 0);
 
   const cancel = async (id: number) => {
-    if (!confirm(l === "ru" ? "Отменить бронирование?" : "Cancel booking?")) return;
+    if (!confirm(l === "ru" ? "Отменить бронирование?" : l === "kk" ? "Броньды тоқтатасыз ба?" : "Cancel booking?")) return;
     try {
       await bookingAPI.cancel(id);
       setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "cancelled" as any } : b));
-      toast.success(l === "ru" ? "Отменено" : "Cancelled");
+      toast.success(l === "ru" ? "Отменено" : l === "kk" ? "Тоқтатылды" : "Cancelled");
     } catch {
       toast.error("Ошибка");
     }
@@ -77,15 +77,15 @@ export default function ProfilePage({ params }: { params: { locale: string } }) 
                 className="flex items-center gap-1.5 text-red-500 hover:bg-red-50 text-sm px-3 py-2 rounded-lg transition-colors"
               >
                 <LogOut className="w-4 h-4" />
-                {l === "ru" ? "Выйти" : "Logout"}
+                {l === "ru" ? "Выйти" : l === "kk" ? "Шығу" : "Logout"}
               </button>
             </div>
             {/* Статистика */}
             <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-100 text-center">
               {[
-                { v: bookings.length,       lbl: l === "ru" ? "Всего"    : "Total"  },
-                { v: active.length,          lbl: l === "ru" ? "Активных" : "Active" },
-                { v: formatPrice(spent), lbl: l === "ru" ? "Потрачено" : "Spent"  },
+                { v: bookings.length,       lbl: l === "ru" ? "Всего"    : l === "kk" ? "Барлығы" : "Total"  },
+                { v: active.length,          lbl: l === "ru" ? "Активных" : l === "kk" ? "Белсенді" : "Active" },
+                { v: formatPrice(spent), lbl: l === "ru" ? "Потрачено" : l === "kk" ? "Жұмсалды" : "Spent"  },
               ].map((s, i) => (
                 <div key={i}>
                   <div className="font-display font-extrabold text-lg text-navy">{s.v}</div>
@@ -107,8 +107,8 @@ export default function ProfilePage({ params }: { params: { locale: string } }) 
                 )}
               >
                 {t === "active"
-                  ? (l === "ru" ? `Активные (${active.length})` : `Active (${active.length})`)
-                  : (l === "ru" ? `История (${history.length})` : `History (${history.length})`)}
+                  ? (l === "ru" ? `Активные (${active.length})` : l === "kk" ? `Белсенді (${active.length})` : `Active (${active.length})`)
+                  : (l === "ru" ? `История (${history.length})` : l === "kk" ? `Тарих (${history.length})` : `History (${history.length})`)}
               </button>
             ))}
           </div>
@@ -124,10 +124,10 @@ export default function ProfilePage({ params }: { params: { locale: string } }) 
             <div className="text-center py-16 bg-white rounded-3xl border border-slate-200">
               <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <h2 className="font-display font-bold text-navy mb-2">
-                {l === "ru" ? "Нет бронирований" : "No bookings"}
+                {l === "ru" ? "Нет бронирований" : l === "kk" ? "Броньдар жоқ" : "No bookings"}
               </h2>
               <Link href={`/${l}/catalog`} className="btn-primary mt-3 inline-flex">
-                {l === "ru" ? "В каталог" : "Browse Catalog"}
+                {l === "ru" ? "В каталог" : l === "kk" ? "Каталогқа өту" : "Browse Catalog"}
               </Link>
             </div>
           ) : (
@@ -155,7 +155,7 @@ export default function ProfilePage({ params }: { params: { locale: string } }) 
                           {b.items.length > 1 ? ` +${b.items.length - 1}` : ""}
                         </p>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          {formatDate(b.start_date)} – {formatDate(b.end_date)} · {b.days} {l === "ru" ? "дн." : "d."}
+                          {formatDate(b.start_date)} – {formatDate(b.end_date)} · {b.days} {l === "ru" ? "дн." : l === "kk" ? "к." : "d."}
                         </p>
                         <div className="flex items-center justify-between mt-2">
                           <span className={cn(
@@ -170,7 +170,7 @@ export default function ProfilePage({ params }: { params: { locale: string } }) 
                               onClick={() => cancel(b.id)}
                               className="text-xs text-red-500 hover:underline"
                             >
-                              {l === "ru" ? "Отменить" : "Cancel"}
+                              {l === "ru" ? "Отменить" : l === "kk" ? "Тоқтату" : "Cancel"}
                             </button>
                           )}
                         </div>

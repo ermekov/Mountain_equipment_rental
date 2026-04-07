@@ -25,19 +25,19 @@ export default async function SuccessPage({
           </div>
 
           <h1 className="font-display text-2xl font-extrabold text-navy mb-2">
-            {l === "ru" ? "Бронирование подтверждено!" : "Booking Confirmed!"}
+            {l === "ru" ? "Бронирование подтверждено!" : l === "kk" ? "Бронь расталды!" : "Booking Confirmed!"}
           </h1>
           <p className="text-slate-500 text-sm mb-6">
             {l === "ru"
               ? "SMS с QR-кодом отправлено на ваш номер"
-              : "SMS with QR code sent to your phone"}
+              : l === "kk" ? "QR коды бар SMS телефоныңызға жіберілді" : "SMS with QR code sent to your phone"}
           </p>
 
           <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden text-left mb-6">
             {/* Номер брони */}
             <div className="bg-navy px-6 py-4 text-center">
               <p className="text-white font-display font-bold text-sm">
-                {l === "ru" ? "Номер брони" : "Booking ID"}
+                {l === "ru" ? "Номер брони" : l === "kk" ? "Бронь нөмірі" : "Booking ID"}
               </p>
               <p className="font-mono text-ice text-lg">#{id}</p>
             </div>
@@ -46,18 +46,18 @@ export default async function SuccessPage({
               {[
                 {
                   icon: <span className="text-lg">📱</span>,
-                  title: l === "ru" ? "Сохраните QR-код"     : "Save QR code",
-                  desc:  l === "ru" ? "QR из SMS нужен на пункте выдачи" : "QR from SMS needed at pickup",
+                  title: l === "ru" ? "Сохраните QR-код"     : l === "kk" ? "QR кодты сақтаңыз" : "Save QR code",
+                  desc:  l === "ru" ? "QR из SMS нужен на пункте выдачи" : l === "kk" ? "SMS-тегі QR код алу пунктінде қажет" : "QR from SMS needed at pickup",
                 },
                 {
                   icon: <MapPin className="w-5 h-5 text-green-600" />,
-                  title: l === "ru" ? "Пункт выдачи"          : "Pickup Point",
-                  desc:  l === "ru" ? "ул. Достык 123, Алматы. Ежедневно 08:00–22:00. Выдача 5 минут." : "Dosyk 123, Almaty. 08:00–22:00 daily. 5-min pickup.",
+                  title: l === "ru" ? "Пункт выдачи"          : l === "kk" ? "Алу пункті" : "Pickup Point",
+                  desc:  l === "ru" ? "ул. Достык 123, Алматы. Ежедневно 08:00–22:00. Выдача 5 минут." : l === "kk" ? "Достық к-сі 123, Алматы. Күн сайын 08:00–22:00. Беру 5 минут." : "Dosyk 123, Almaty. 08:00–22:00 daily. 5-min pickup.",
                 },
                 {
                   icon: <Calendar className="w-5 h-5 text-amber-500" />,
-                  title: l === "ru" ? "Напоминание"           : "Reminder",
-                  desc:  l === "ru" ? "SMS за 2 дня до возврата снаряжения" : "SMS 2 days before equipment return.",
+                  title: l === "ru" ? "Напоминание"           : l === "kk" ? "Еске салу" : "Reminder",
+                  desc:  l === "ru" ? "SMS за 2 дня до возврата снаряжения" : l === "kk" ? "Жабдықты қайтаруға 2 күн қалғанда SMS жіберіледі" : "SMS 2 days before equipment return.",
                 },
               ].map((s, i) => (
                 <div key={i} className="flex gap-3">
@@ -75,7 +75,7 @@ export default async function SuccessPage({
               <div className="flex items-center gap-2 bg-surface rounded-xl p-3 border border-slate-100">
                 <Phone className="w-4 h-4 text-slate-400" />
                 <div>
-                  <p className="text-xs text-slate-500">{l === "ru" ? "Вопросы?" : "Questions?"}</p>
+                  <p className="text-xs text-slate-500">{l === "ru" ? "Вопросы?" : l === "kk" ? "Сұрақтар бар ма?" : "Questions?"}</p>
                   <a href="tel:+77071234567" className="font-bold text-sm text-ice">
                     +7 (707) 123-45-67
                   </a>
@@ -87,10 +87,10 @@ export default async function SuccessPage({
           {/* Кнопки */}
           <div className="grid grid-cols-2 gap-3">
             <Link href={`/${locale}/catalog`} className="btn-secondary text-sm text-center !py-3">
-              {l === "ru" ? "Ещё снаряжение" : "More Gear"}
+              {l === "ru" ? "Ещё снаряжение" : l === "kk" ? "Тағы жабдықтар" : "More Gear"}
             </Link>
             <Link href={`/${locale}/profile`} className="btn-primary text-sm text-center !py-3">
-              {l === "ru" ? "Мои брони" : "My Bookings"}
+              {l === "ru" ? "Мои брони" : l === "kk" ? "Менің броньдарым" : "My Bookings"}
             </Link>
           </div>
         </div>

@@ -97,9 +97,9 @@ function CheckoutInner({ locale }: { locale: Locale }) {
   }, [name, phone, payMethod, bookingId]);
 
   const steps = [
-    l === "ru" ? "Подтверждение" : "Confirm",
-    l === "ru" ? "Данные"        : "Details",
-    l === "ru" ? "Оплата"        : "Payment",
+    l === "ru" ? "Подтверждение" : l === "kk" ? "Растау" : "Confirm",
+    l === "ru" ? "Данные"        : l === "kk" ? "Деректер" : "Details",
+    l === "ru" ? "Оплата"        : l === "kk" ? "Төлем" : "Payment",
   ];
 
   return (
@@ -136,13 +136,13 @@ function CheckoutInner({ locale }: { locale: Locale }) {
           {step === 1 && (
             <div className="p-7">
               <h2 className="font-display font-extrabold text-xl text-navy mb-5">
-                {l === "ru" ? "Подтверждение заказа" : "Order Confirmation"}
+                {l === "ru" ? "Подтверждение заказа" : l === "kk" ? "Тапсырысты растау" : "Order Confirmation"}
               </h2>
               {cartItems.length === 0 ? (
                 <div className="text-center py-10">
-                  <p className="text-slate-400 mb-4">{l === "ru" ? "Корзина пуста" : "Cart is empty"}</p>
+                  <p className="text-slate-400 mb-4">{l === "ru" ? "Корзина пуста" : l === "kk" ? "Себет бос" : "Cart is empty"}</p>
                   <Link href={`/${l}/catalog`} className="btn-primary">
-                    {l === "ru" ? "В каталог" : "Browse"}
+                    {l === "ru" ? "В каталог" : l === "kk" ? "Каталогқа" : "Browse"}
                   </Link>
                 </div>
               ) : (
@@ -170,7 +170,7 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                               : item.equipment.name_ru}
                           </p>
                           <p className="text-xs text-slate-500">
-                            {formatPrice(item.equipment.price_per_day)} × {item.days} {l === "ru" ? "дн." : "d."} × {item.quantity}
+                            {formatPrice(item.equipment.price_per_day)} × {item.days} {l === "ru" ? "дн." : l === "kk" ? "к." : "d."} × {item.quantity}
                           </p>
                         </div>
                         <span className="font-display font-bold text-navy text-sm">
@@ -181,14 +181,14 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                   </div>
                   <div className="flex justify-between border-t border-slate-200 pt-4 mb-5">
                     <span className="font-display font-bold text-navy">
-                      {l === "ru" ? "Итого" : "Total"}
+                      {l === "ru" ? "Итого" : l === "kk" ? "Барлығы" : "Total"}
                     </span>
                     <span className="font-display font-extrabold text-xl text-ice">
                       {formatPrice(totalPrice)}
                     </span>
                   </div>
                   <button onClick={() => setStep(2)} className="btn-primary w-full !py-3.5">
-                    {l === "ru" ? "Продолжить →" : "Continue →"}
+                    {l === "ru" ? "Продолжить →" : l === "kk" ? "Жалғастыру →" : "Continue →"}
                   </button>
                 </>
               )}
@@ -199,24 +199,24 @@ function CheckoutInner({ locale }: { locale: Locale }) {
           {step === 2 && (
             <div className="p-7">
               <h2 className="font-display font-extrabold text-xl text-navy mb-5">
-                {l === "ru" ? "Ваши данные" : "Your Details"}
+                {l === "ru" ? "Ваши данные" : l === "kk" ? "Сіздің деректеріңіз" : "Your Details"}
               </h2>
               <div className="space-y-4 mb-5">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                    {l === "ru" ? "Имя" : "Name"}
+                    {l === "ru" ? "Имя" : l === "kk" ? "Аты" : "Name"}
                   </label>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder={l === "ru" ? "Айдос Бекенов" : "Your name"}
+                    placeholder={l === "ru" ? "Айдос Бекенов" : l === "kk" ? "Атыңыз" : "Your name"}
                     className="input-base"
                     autoComplete="name"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                    {l === "ru" ? "Телефон" : "Phone"}
+                    {l === "ru" ? "Телефон" : l === "kk" ? "Телефон" : "Phone"}
                   </label>
                   <input
                     value={phone}
@@ -240,13 +240,13 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-                    {l === "ru" ? "Способ оплаты" : "Payment Method"}
+                    {l === "ru" ? "Способ оплаты" : l === "kk" ? "Төлем тәсілі" : "Payment Method"}
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {[
                       { id: "kaspi_qr" as PaymentMethod, icon: <QrCode className="w-5 h-5" />,     label: "Kaspi QR",                         rec: true  },
-                      { id: "card"     as PaymentMethod, icon: <CreditCard className="w-5 h-5" />, label: l === "ru" ? "Карта" : "Card",       rec: false },
-                      { id: "cash"     as PaymentMethod, icon: <Banknote className="w-5 h-5" />,   label: l === "ru" ? "Наличные" : "Cash",    rec: false },
+                      { id: "card"     as PaymentMethod, icon: <CreditCard className="w-5 h-5" />, label: l === "ru" ? "Карта" : l === "kk" ? "Карта" : "Card",       rec: false },
+                      { id: "cash"     as PaymentMethod, icon: <Banknote className="w-5 h-5" />,   label: l === "ru" ? "Наличные" : l === "kk" ? "Қолма-қол" : "Cash",    rec: false },
                     ].map((pm) => (
                       <button
                         key={pm.id}
@@ -263,7 +263,7 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                             className="absolute -top-2 left-1/2 -translate-x-1/2 bg-ice text-white font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
                             style={{ fontSize: "9px" }}
                           >
-                            {l === "ru" ? "Рекомендуем" : "Recommended"}
+                            {l === "ru" ? "Рекомендуем" : l === "kk" ? "Ұсынамыз" : "Recommended"}
                           </span>
                         )}
                         <span className={payMethod === pm.id ? "text-ice" : ""}>{pm.icon}</span>
@@ -277,12 +277,12 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 ) : (
-                  l === "ru" ? `Оплатить ${formatPrice(totalPrice)}` : `Pay ${formatPrice(totalPrice)}`
+                  l === "ru" ? `Оплатить ${formatPrice(totalPrice)}` : l === "kk" ? `${formatPrice(totalPrice)} төлеу` : `Pay ${formatPrice(totalPrice)}`
                 )}
               </button>
               <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
                 <Shield className="w-3.5 h-3.5 text-green-500" />
-                {l === "ru" ? "Платёж защищён. Данные не сохраняются." : "Payment secured."}
+                {l === "ru" ? "Платёж защищён. Данные не сохраняются." : l === "kk" ? "Төлем қорғалған. Деректер сақталмайды." : "Payment secured."}
               </div>
             </div>
           )}
@@ -292,8 +292,8 @@ function CheckoutInner({ locale }: { locale: Locale }) {
             <div className="p-7">
               <h2 className="font-display font-extrabold text-xl text-navy mb-2 text-center">
                 {payStatus === "paid"
-                  ? (l === "ru" ? "Оплата прошла! 🎉" : "Paid! 🎉")
-                  : (l === "ru" ? "Ожидание оплаты" : "Waiting for payment")}
+                  ? (l === "ru" ? "Оплата прошла! 🎉" : l === "kk" ? "Төлем өтті! 🎉" : "Paid! 🎉")
+                  : (l === "ru" ? "Ожидание оплаты" : l === "kk" ? "Төлем күтілуде" : "Waiting for payment")}
               </h2>
               <div className="flex flex-col items-center py-6">
                 {payStatus === "paid" ? (
@@ -315,11 +315,11 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                     <p className="text-slate-500 text-sm mb-3">
                       {l === "ru"
                         ? "Откройте Kaspi → Оплатить → QR-код"
-                        : "Open Kaspi → Pay → QR Code"}
+                        : l === "kk" ? "Kaspi ашыңыз → Төлеу → QR код" : "Open Kaspi → Pay → QR Code"}
                     </p>
                     <div className="flex items-center gap-2 text-sm text-slate-500 mb-5">
                       <div className="w-3 h-3 border-2 border-ice/40 border-t-ice rounded-full animate-spin" />
-                      {l === "ru" ? "Ожидание оплаты..." : "Waiting..."}
+                      {l === "ru" ? "Ожидание оплаты..." : l === "kk" ? "Төлем күтілуде..." : "Waiting..."}
                     </div>
                     {/* Демо-кнопка */}
                     <button
@@ -330,14 +330,14 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                       }}
                       className="btn-primary text-sm"
                     >
-                      ✓ {l === "ru" ? "Симулировать оплату (Demo)" : "Simulate Payment (Demo)"}
+                      ✓ {l === "ru" ? "Симулировать оплату (Demo)" : l === "kk" ? "Төлемді имитациялау (Demo)" : "Simulate Payment (Demo)"}
                     </button>
                   </>
                 )}
 
                 {payStatus === "expired" && (
                   <button onClick={handlePay} className="btn-secondary text-sm mt-2">
-                    {l === "ru" ? "Обновить QR" : "Refresh QR"}
+                    {l === "ru" ? "Обновить QR" : l === "kk" ? "QR жаңарту" : "Refresh QR"}
                   </button>
                 )}
               </div>

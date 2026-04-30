@@ -22,12 +22,14 @@ Blueprint: admin_bp → префикс /api/admin
 
 from datetime import datetime, timedelta
 from pathlib import Path
+import csv
+import io
 import uuid
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
-from sqlalchemy import func
+from sqlalchemy import func, desc
 
 from ..extensions import db
 from ..models import User, Equipment, Booking, BookingItem
@@ -35,8 +37,190 @@ from ..utils.auth import admin_required, manager_required, make_token
 
 admin_bp = Blueprint("admin", __name__)
 
+EXPORT_I18N = {
+    "ru": {
+        "filename": "analytics",
+        "types": {
+            "summary": "summary",
+            "products": "top-products",
+            "users": "top-users",
+        },
+        "summary_headers": [
+            "date_from",
+            "date_to",
+            "total_revenue",
+            "total_bookings",
+            "confirmed_bookings",
+            "cancelled_bookings",
+            "avg_booking_value",
+            "active_users",
+        ],
+        "products_headers": ["equipment_id", "name", "rental_count", "revenue"],
+        "users_headers": ["user_id", "name", "phone", "booking_count", "total_spent"],
+    },
+    "kk": {
+        "filename": "analitika",
+        "types": {
+            "summary": "qysqasha-esep",
+            "products": "top-tauarlar",
+            "users": "top-klientter",
+        },
+        "summary_headers": [
+            "bastalu_kuni",
+            "ayaqtalu_kuni",
+            "jalpy_tabys",
+            "jalpy_bron_sany",
+            "rastalgan_bron",
+            "bas_tartylgan_bron",
+            "ortasha_chek",
+            "belsendi_klientter",
+        ],
+        "products_headers": ["tauar_id", "atauy", "jalga_alu_sany", "tabys"],
+        "users_headers": ["user_id", "aty", "telefon", "bron_sany", "barlyq_shygyn"],
+    },
+    "en": {
+        "filename": "analytics",
+        "types": {
+            "summary": "summary",
+            "products": "top-products",
+            "users": "top-users",
+        },
+        "summary_headers": [
+            "date_from",
+            "date_to",
+            "total_revenue",
+            "total_bookings",
+            "confirmed_bookings",
+            "cancelled_bookings",
+            "average_order_value",
+            "active_users",
+        ],
+        "products_headers": ["product_id", "name", "rental_count", "revenue"],
+        "users_headers": ["user_id", "name", "phone", "booking_count", "total_spent"],
+    },
+}
+
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 UPLOADS_DIR = Path(__file__).resolve().parents[3] / "frontend" / "public" / "uploads" / "products"
+
+
+def _parse_date_range():
+    date_from_raw = request.args.get("date_from", "").strip()
+    date_to_raw = request.args.get("date_to", "").strip()
+
+    now = datetime.utcnow()
+    start_dt = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    end_dt = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    if date_from_raw:
+        start_dt = datetime.strptime(date_from_raw, "%Y-%m-%d")
+    if date_to_raw:
+        end_dt = datetime.strptime(date_to_raw, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59, microsecond=999999
+        )
+
+    return start_dt, end_dt
+
+
+def _analytics_base_query(start_dt, end_dt):
+    return Booking.query.filter(
+        Booking.created_at >= start_dt,
+        Booking.created_at <= end_dt,
+    )
+
+
+def _summary_payload(start_dt, end_dt):
+    base_query = _analytics_base_query(start_dt, end_dt)
+    paid_statuses = ["confirmed", "completed"]
+
+    total_bookings = base_query.count()
+    confirmed_bookings = base_query.filter(Booking.status.in_(paid_statuses)).count()
+    cancelled_bookings = base_query.filter(Booking.status == "cancelled").count()
+    total_revenue = (
+        base_query.with_entities(func.sum(Booking.total_price))
+        .filter(Booking.status.in_(paid_statuses))
+        .scalar()
+        or 0
+    )
+    active_users = (
+        base_query.with_entities(func.count(func.distinct(Booking.user_id))).scalar() or 0
+    )
+
+    return {
+        "date_from": start_dt.date().isoformat(),
+        "date_to": end_dt.date().isoformat(),
+        "total_revenue": int(total_revenue),
+        "total_bookings": total_bookings,
+        "confirmed_bookings": confirmed_bookings,
+        "cancelled_bookings": cancelled_bookings,
+        "avg_booking_value": round(total_revenue / confirmed_bookings, 2) if confirmed_bookings else 0,
+        "active_users": active_users,
+    }
+
+
+def _top_products_payload(start_dt, end_dt, limit=10):
+    rows = (
+        db.session.query(
+            Equipment.id.label("equipment_id"),
+            Equipment.name_ru.label("name"),
+            func.sum(BookingItem.quantity).label("rental_count"),
+            func.sum(BookingItem.subtotal).label("revenue"),
+        )
+        .join(BookingItem, BookingItem.equipment_id == Equipment.id)
+        .join(Booking, Booking.id == BookingItem.booking_id)
+        .filter(
+            Booking.created_at >= start_dt,
+            Booking.created_at <= end_dt,
+            Booking.status.in_(["confirmed", "completed"]),
+        )
+        .group_by(Equipment.id, Equipment.name_ru)
+        .order_by(desc("rental_count"), desc("revenue"))
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        {
+            "equipment_id": row.equipment_id,
+            "name": row.name,
+            "rental_count": int(row.rental_count or 0),
+            "revenue": int(row.revenue or 0),
+        }
+        for row in rows
+    ]
+
+
+def _top_users_payload(start_dt, end_dt, limit=10):
+    rows = (
+        db.session.query(
+            User.id.label("user_id"),
+            User.name.label("name"),
+            User.phone.label("phone"),
+            func.count(Booking.id).label("booking_count"),
+            func.sum(Booking.total_price).label("total_spent"),
+        )
+        .join(Booking, Booking.user_id == User.id)
+        .filter(
+            Booking.created_at >= start_dt,
+            Booking.created_at <= end_dt,
+            Booking.status.in_(["confirmed", "completed"]),
+        )
+        .group_by(User.id, User.name, User.phone)
+        .order_by(desc("total_spent"), desc("booking_count"))
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        {
+            "user_id": row.user_id,
+            "name": row.name or "",
+            "phone": row.phone or "",
+            "booking_count": int(row.booking_count or 0),
+            "total_spent": int(row.total_spent or 0),
+        }
+        for row in rows
+    ]
 
 
 # ─────────────────────────────────────────────────────────
@@ -122,6 +306,73 @@ def admin_stats():
         "users_new":       User.query.filter(User.created_at >= month_start).count(),
         "users":           users_data,
     }), 200
+
+
+@admin_bp.route("/analytics/summary", methods=["GET"])
+@admin_required
+def admin_analytics_summary():
+    start_dt, end_dt = _parse_date_range()
+    return jsonify(_summary_payload(start_dt, end_dt)), 200
+
+
+@admin_bp.route("/analytics/top-products", methods=["GET"])
+@admin_required
+def admin_analytics_top_products():
+    start_dt, end_dt = _parse_date_range()
+    limit = min(int(request.args.get("limit", 10) or 10), 50)
+    return jsonify(_top_products_payload(start_dt, end_dt, limit)), 200
+
+
+@admin_bp.route("/analytics/top-users", methods=["GET"])
+@admin_required
+def admin_analytics_top_users():
+    start_dt, end_dt = _parse_date_range()
+    limit = min(int(request.args.get("limit", 10) or 10), 50)
+    return jsonify(_top_users_payload(start_dt, end_dt, limit)), 200
+
+
+@admin_bp.route("/analytics/export", methods=["GET"])
+@admin_required
+def admin_analytics_export():
+    start_dt, end_dt = _parse_date_range()
+    export_type = request.args.get("type", "summary").strip()
+    locale = request.args.get("locale", "ru").strip().lower()
+    export_locale = EXPORT_I18N.get(locale, EXPORT_I18N["ru"])
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    if export_type == "products":
+        rows = _top_products_payload(start_dt, end_dt, limit=100)
+        writer.writerow(export_locale["products_headers"])
+        for row in rows:
+            writer.writerow([row["equipment_id"], row["name"], row["rental_count"], row["revenue"]])
+    elif export_type == "users":
+        rows = _top_users_payload(start_dt, end_dt, limit=100)
+        writer.writerow(export_locale["users_headers"])
+        for row in rows:
+            writer.writerow([row["user_id"], row["name"], row["phone"], row["booking_count"], row["total_spent"]])
+    else:
+        row = _summary_payload(start_dt, end_dt)
+        writer.writerow(export_locale["summary_headers"])
+        writer.writerow([
+            row["date_from"],
+            row["date_to"],
+            row["total_revenue"],
+            row["total_bookings"],
+            row["confirmed_bookings"],
+            row["cancelled_bookings"],
+            row["avg_booking_value"],
+            row["active_users"],
+        ])
+
+    export_type_label = export_locale["types"].get(export_type, export_type)
+    filename = f'{export_locale["filename"]}-{export_type_label}-{start_dt.date().isoformat()}-{end_dt.date().isoformat()}.csv'
+    return Response(
+        "\ufeff" + output.getvalue(),
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ─────────────────────────────────────────────────────────

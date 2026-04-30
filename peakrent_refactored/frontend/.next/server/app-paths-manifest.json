@@ -1,8 +1,6 @@
 {
-  "/[locale]/profile/page": "app/[locale]/profile/page.js",
-  "/[locale]/auth/page": "app/[locale]/auth/page.js",
-  "/[locale]/admin/page": "app/[locale]/admin/page.js",
   "/[locale]/page": "app/[locale]/page.js",
   "/[locale]/ai/page": "app/[locale]/ai/page.js",
-  "/[locale]/manager/page": "app/[locale]/manager/page.js"
+  "/[locale]/equipment/[slug]/page": "app/[locale]/equipment/[slug]/page.js",
+  "/[locale]/auth/page": "app/[locale]/auth/page.js"
 }

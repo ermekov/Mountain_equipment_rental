@@ -65,7 +65,7 @@ export default async function HomePage({
               quality={85}
             />
             <div className="absolute inset-0 bg-gradient-to-r from-navy/92 via-navy/70 to-navy/30" />
-            <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-surface to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 h-[30rem] bg-gradient-to-t from-[#555555] to-transparent" />
           </div>
 
           <div className="relative z-10 container-page py-20">

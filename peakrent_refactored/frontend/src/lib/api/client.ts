@@ -23,6 +23,10 @@ export const authAPI = {
     apiClient.post<{ message: string; dev_code?: string }>("/auth/send-otp", data),
   verifyOtp: (data: { phone: string; code: string }) =>
     apiClient.post<{ access_token: string; user: User }>("/auth/verify-otp", data),
+  register:  (data: { name: string; email: string; phone: string; password: string; code: string }) =>
+    apiClient.post<{ access_token: string; user: User }>("/auth/register", data),
+  login:     (data: { login: string; password: string }) =>
+    apiClient.post<{ access_token: string; user: User }>("/auth/login", data),
   getMe:     () => apiClient.get<User>("/auth/me"),
   updateMe:  (data: { name?: string }) => apiClient.put<User>("/auth/me", data),
 };

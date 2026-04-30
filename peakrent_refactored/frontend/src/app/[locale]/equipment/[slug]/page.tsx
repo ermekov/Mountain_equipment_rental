@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Navbar } from "@/components/layout/navbar";
 import { equipmentAPI, bookingAPI, reviewAPI, recommendAPI } from "@/lib/api/client";
 import { cn, formatPrice, daysBetween } from "@/lib/utils";
-import { useBookingStore } from "@/lib/stores";
+import { useAuthStore } from "@/lib/stores";
 import type { Locale, Equipment, Review } from "@/lib/types";
 
 export default function EquipmentPage({
@@ -21,11 +21,15 @@ export default function EquipmentPage({
 }) {
   const l = params.locale as Locale;
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
 
   const [eq,       setEq]       = useState<Equipment | null>(null);
   const [reviews,  setReviews]  = useState<Review[]>([]);
   const [related,  setRelated]  = useState<Equipment[]>([]);
   const [loading,  setLoading]  = useState(true);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   // Booking state
   const [start,      setStart]      = useState("");
@@ -77,6 +81,33 @@ export default function EquipmentPage({
       setSubmitting(false);
     }
   }, [eq, start, end, days, qty, size, insurance, l, router]);
+
+  const handleReviewSubmit = useCallback(async () => {
+    if (!eq) return;
+
+    if (!user) {
+      toast.error(l === "ru" ? "Сначала войдите в аккаунт" : l === "kk" ? "Алдымен аккаунтқа кіріңіз" : "Please sign in first");
+      router.push(`/${l}/auth`);
+      return;
+    }
+
+    setReviewSubmitting(true);
+    try {
+      const res = await reviewAPI.create({
+        equipment_id: eq.id,
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      });
+      setReviews((current) => [res.data, ...current]);
+      setReviewComment("");
+      setReviewRating(5);
+      toast.success(l === "ru" ? "Отзыв отправлен" : l === "kk" ? "Пікір жіберілді" : "Review submitted");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error ?? (l === "ru" ? "Не удалось отправить отзыв" : l === "kk" ? "Пікір жіберілмеді" : "Failed to submit review"));
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }, [eq, l, reviewComment, reviewRating, router, user]);
 
   if (loading) {
     return (
@@ -250,6 +281,72 @@ export default function EquipmentPage({
                       <span className="text-slate-500 font-normal text-base ml-2">({reviews.length})</span>
                     )}
                   </h2>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <h3 className="font-display font-bold text-sm text-navy">
+                        {l === "ru" ? "Оставить отзыв" : l === "kk" ? "Пікір жазу" : "Write a review"}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {user
+                          ? (l === "ru" ? "Поделитесь впечатлением о снаряжении" : l === "kk" ? "Жабдық туралы ойыңызды жазыңыз" : "Share your experience with this gear")
+                          : (l === "ru" ? "Чтобы написать отзыв, войдите в аккаунт" : l === "kk" ? "Пікір жазу үшін аккаунтқа кіріңіз" : "Sign in to leave a review")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => user && setReviewRating(value)}
+                          className={cn(
+                            "transition-transform",
+                            user ? "hover:scale-110" : "cursor-not-allowed opacity-70",
+                          )}
+                        >
+                          <Star
+                            className={cn(
+                              "w-5 h-5",
+                              value <= reviewRating ? "fill-amber-400 text-amber-400" : "text-slate-300",
+                            )}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <textarea
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder={
+                      l === "ru"
+                        ? "Напишите, что понравилось или что можно улучшить"
+                        : l === "kk"
+                        ? "Не ұнағанын немесе нені жақсартуға болатынын жазыңыз"
+                        : "Write what you liked or what could be improved"
+                    }
+                    disabled={!user || reviewSubmitting}
+                    rows={4}
+                    className="input-base min-h-28 resize-y"
+                  />
+                  <div className="flex items-center justify-between gap-3 mt-3">
+                    <span className="text-xs text-slate-400">
+                      {reviewComment.trim().length}/500
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleReviewSubmit}
+                      disabled={!user || reviewSubmitting || reviewComment.trim().length > 500}
+                      className={cn(
+                        "btn-primary !py-2.5 !px-5",
+                        (!user || reviewSubmitting || reviewComment.trim().length > 500) && "opacity-60 cursor-not-allowed",
+                      )}
+                    >
+                      {reviewSubmitting
+                        ? (l === "ru" ? "Отправка..." : l === "kk" ? "Жіберілуде..." : "Submitting...")
+                        : (l === "ru" ? "Отправить отзыв" : l === "kk" ? "Пікір жіберу" : "Submit review")}
+                    </button>
+                  </div>
                 </div>
                 {reviews.length === 0 ? (
                   <div className="text-center py-8 bg-surface rounded-2xl border border-slate-200">

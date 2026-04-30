@@ -17,6 +17,8 @@ Blueprint: auth_bp → префикс /api/auth
 
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, current_app, g
+from sqlalchemy import or_
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from ..extensions import db
 from ..models import User, OTPCode
@@ -25,6 +27,24 @@ from ..services.sms_service import SMSService
 
 # Создаём Blueprint
 auth_bp = Blueprint("auth", __name__)
+
+
+def _normalize_phone(phone: str) -> str:
+    digits = "".join(ch for ch in (phone or "") if ch.isdigit())
+    if digits.startswith("8"):
+        digits = "7" + digits[1:]
+    if digits and not digits.startswith("7"):
+        digits = "7" + digits
+    return f"+{digits}" if digits else ""
+
+
+def _find_valid_otp(phone: str, code: str):
+    return (
+        OTPCode.query
+        .filter_by(phone=phone, code=code, used=False)
+        .filter(OTPCode.expires_at > datetime.utcnow())
+        .first()
+    )
 
 
 @auth_bp.route("/send-otp", methods=["POST"])
@@ -37,7 +57,7 @@ def send_otp():
     Dev-mode: { "message": "OTP отправлен", "dev_code": "123456" }
     """
     data  = request.get_json() or {}
-    phone = data.get("phone", "").strip()
+    phone = _normalize_phone(data.get("phone", "").strip())
 
     if not phone:
         return jsonify({"error": "Поле 'phone' обязательно"}), 400
@@ -83,19 +103,14 @@ def verify_otp():
     Response: { "access_token": "eyJ...", "user": {...} }
     """
     data  = request.get_json() or {}
-    phone = data.get("phone", "").strip()
+    phone = _normalize_phone(data.get("phone", "").strip())
     code  = data.get("code", "").strip()
 
     if not phone or not code:
         return jsonify({"error": "Поля 'phone' и 'code' обязательны"}), 400
 
     # Ищем актуальный неиспользованный код
-    otp = (
-        OTPCode.query
-        .filter_by(phone=phone, code=code, used=False)
-        .filter(OTPCode.expires_at > datetime.utcnow())
-        .first()
-    )
+    otp = _find_valid_otp(phone, code)
 
     if not otp:
         return jsonify({"error": "Неверный или истёкший код подтверждения"}), 400
@@ -118,6 +133,88 @@ def verify_otp():
     return jsonify({
         "access_token": token,
         "user":         user.to_dict(),
+    }), 200
+
+
+@auth_bp.route("/register", methods=["POST"])
+def register():
+    data = request.get_json() or {}
+
+    name = data.get("name", "").strip()
+    email = data.get("email", "").strip().lower()
+    phone = _normalize_phone(data.get("phone", "").strip())
+    password = data.get("password", "")
+    code = data.get("code", "").strip()
+
+    if not name or not email or not phone or not password or not code:
+        return jsonify({"error": "Fields 'name', 'email', 'phone', 'password' and 'code' are required"}), 400
+
+    if len(password) < 6:
+        return jsonify({"error": "Password must contain at least 6 characters"}), 400
+
+    otp = _find_valid_otp(phone, code)
+    if not otp:
+        return jsonify({"error": "Invalid or expired verification code"}), 400
+
+    existing_by_email = User.query.filter(User.email == email).first()
+    existing_by_phone = User.query.filter(User.phone == phone).first()
+
+    if existing_by_email and existing_by_email.role != "user":
+        return jsonify({"error": "Email is already used"}), 409
+    if existing_by_phone and existing_by_phone.role != "user":
+        return jsonify({"error": "Phone is already used"}), 409
+
+    user = existing_by_phone or existing_by_email
+    if user and user.password:
+        return jsonify({"error": "User already exists. Please sign in"}), 409
+
+    if user is None:
+        user = User(role="user")
+        db.session.add(user)
+
+    if existing_by_email and existing_by_phone and existing_by_email.id != existing_by_phone.id:
+        return jsonify({"error": "Email or phone is already linked to another account"}), 409
+
+    otp.used = True
+    user.name = name
+    user.email = email
+    user.phone = phone
+    user.password = generate_password_hash(password)
+
+    db.session.commit()
+
+    token = make_token(user.id, user.role)
+    return jsonify({
+        "access_token": token,
+        "user": user.to_dict(),
+    }), 201
+
+
+@auth_bp.route("/login", methods=["POST"])
+def login():
+    data = request.get_json() or {}
+
+    login_value = data.get("login", "").strip()
+    password = data.get("password", "")
+    normalized_phone = _normalize_phone(login_value)
+
+    if not login_value or not password:
+        return jsonify({"error": "Fields 'login' and 'password' are required"}), 400
+
+    user = User.query.filter(
+        or_(User.email == login_value.lower(), User.phone == normalized_phone)
+    ).first()
+
+    if not user or not user.password:
+        return jsonify({"error": "User not found"}), 401
+
+    if not check_password_hash(user.password, password):
+        return jsonify({"error": "Incorrect password"}), 401
+
+    token = make_token(user.id, user.role)
+    return jsonify({
+        "access_token": token,
+        "user": user.to_dict(),
     }), 200
 
 

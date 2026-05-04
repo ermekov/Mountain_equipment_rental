@@ -31,6 +31,13 @@ interface Product {
   is_active: boolean;
   is_featured: boolean;
 }
+interface Category {
+  id: number;
+  slug: string;
+  name_ru: string;
+  name_kk: string;
+  name_en: string;
+}
 interface Booking {
   id: number;
   status: string;
@@ -73,7 +80,8 @@ interface TopUser {
 
 // Пустая форма для добавления нового товара
 const EMPTY_FORM = {
-  name: "", description: "", price: "", stock: "1", image_url: "",
+  name: "", description: "", price: "", deposit: "", stock: "1", image_url: "", category_id: "", is_featured: false,
+  tags: "", sizes: "", size_type: "none", peak_months: "",
 };
 
 const MESSAGES = {
@@ -97,6 +105,9 @@ const MESSAGES = {
     },
     alerts: {
       addRequired: "Заполните название и цену",
+      categoryRequired: "Выберите категорию",
+      invalidNumbers: "Цена должна быть больше 0, залог не может быть отрицательным, а остаток не может быть отрицательным",
+      invalidMonths: "Пиковые месяцы указывайте числами от 1 до 12 через запятую",
       editRequired: "Название и цена не могут быть пустыми",
       connection: "Ошибка соединения",
       deleteConfirm: (name: string) => `Скрыть "${name}" из каталога?`,
@@ -105,15 +116,27 @@ const MESSAGES = {
       addTitle: "➕ Добавить снаряжение",
       fields: {
         name: "Название *",
+        category: "Категория *",
         price: "Цена ₸/день *",
+        deposit: "Залог ₸",
         stock: "Остаток (шт.)",
+        tags: "Теги",
+        sizes: "Размеры",
+        sizeType: "Тип размеров",
+        peakMonths: "Пиковые месяцы",
         description: "Описание",
         imageUrl: "URL фотографии",
       },
       placeholders: {
         name: "Горнолыжный шлем",
+        category: "Выберите категорию",
         price: "5000",
+        deposit: "10000",
         stock: "10",
+        tags: "skiing, winter, helmet",
+        sizes: "S, M, L",
+        sizeType: "Выберите тип",
+        peakMonths: "11, 12, 1, 2, 3",
         description: "Краткое описание",
         imageUrl: "https://... или /uploads/products/...",
       },
@@ -133,12 +156,19 @@ const MESSAGES = {
       },
       noImage: "нет",
       featuredHome: "Главная",
+      featuredCheckbox: "Показывать на главной",
       featuredTop: "★ Топ",
       save: "Сохранить",
       cancel: "Отмена",
       edit: "Изменить",
       delete: "Удалить",
       pieces: "шт.",
+      sizeTypeOptions: {
+        none: "Без размеров",
+        ski_length: "Длина лыж/сноуборда",
+        boot_size: "Размер обуви",
+        clothing: "Размер одежды",
+      },
     },
     bookings: {
       columns: {
@@ -217,6 +247,9 @@ const MESSAGES = {
     },
     alerts: {
       addRequired: "Атауы мен бағасын толтырыңыз",
+      categoryRequired: "Санатты таңдаңыз",
+      invalidNumbers: "Бағасы 0-ден үлкен, кепілақы мен қалдық теріс болмауы керек",
+      invalidMonths: "Қарбалас айларды 1-ден 12-ге дейін үтір арқылы жазыңыз",
       editRequired: "Атауы мен бағасы бос болмауы керек",
       connection: "Қосылым қатесі",
       deleteConfirm: (name: string) => `"${name}" тауарын каталогтан жасырайық па?`,
@@ -225,15 +258,27 @@ const MESSAGES = {
       addTitle: "➕ Жабдық қосу",
       fields: {
         name: "Атауы *",
+        category: "Санат *",
         price: "Бағасы ₸/күн *",
+        deposit: "Кепілақы ₸",
         stock: "Қалдық (дана)",
+        tags: "Тегтер",
+        sizes: "Өлшемдер",
+        sizeType: "Өлшем түрі",
+        peakMonths: "Қарбалас айлар",
         description: "Сипаттама",
         imageUrl: "Фото URL",
       },
       placeholders: {
         name: "Тау шаңғысы дулығасы",
+        category: "Санатты таңдаңыз",
         price: "5000",
+        deposit: "10000",
         stock: "10",
+        tags: "skiing, winter, helmet",
+        sizes: "S, M, L",
+        sizeType: "Түрін таңдаңыз",
+        peakMonths: "11, 12, 1, 2, 3",
         description: "Қысқаша сипаттама",
         imageUrl: "https://... немесе /uploads/products/...",
       },
@@ -253,12 +298,19 @@ const MESSAGES = {
       },
       noImage: "жоқ",
       featuredHome: "Басты",
+      featuredCheckbox: "Басты бетте көрсету",
       featuredTop: "★ Үздік",
       save: "Сақтау",
       cancel: "Бас тарту",
       edit: "Өзгерту",
       delete: "Жою",
       pieces: "дана",
+      sizeTypeOptions: {
+        none: "Өлшемсіз",
+        ski_length: "Шаңғы/сноуборд ұзындығы",
+        boot_size: "Аяқ киім өлшемі",
+        clothing: "Киім өлшемі",
+      },
     },
     bookings: {
       columns: {
@@ -337,6 +389,9 @@ const MESSAGES = {
     },
     alerts: {
       addRequired: "Please fill in the name and price",
+      categoryRequired: "Please choose a category",
+      invalidNumbers: "Price must be greater than 0, deposit cannot be negative, and stock cannot be negative",
+      invalidMonths: "Enter peak months as numbers from 1 to 12 separated by commas",
       editRequired: "Name and price cannot be empty",
       connection: "Connection error",
       deleteConfirm: (name: string) => `Hide "${name}" from the catalog?`,
@@ -345,15 +400,27 @@ const MESSAGES = {
       addTitle: "➕ Add equipment",
       fields: {
         name: "Name *",
+        category: "Category *",
         price: "Price ₸/day *",
+        deposit: "Deposit ₸",
         stock: "Stock (pcs)",
+        tags: "Tags",
+        sizes: "Sizes",
+        sizeType: "Size type",
+        peakMonths: "Peak months",
         description: "Description",
         imageUrl: "Image URL",
       },
       placeholders: {
         name: "Ski helmet",
+        category: "Choose a category",
         price: "5000",
+        deposit: "10000",
         stock: "10",
+        tags: "skiing, winter, helmet",
+        sizes: "S, M, L",
+        sizeType: "Choose a type",
+        peakMonths: "11, 12, 1, 2, 3",
         description: "Short description",
         imageUrl: "https://... or /uploads/products/...",
       },
@@ -373,12 +440,19 @@ const MESSAGES = {
       },
       noImage: "none",
       featuredHome: "Home",
+      featuredCheckbox: "Show on homepage",
       featuredTop: "★ Top",
       save: "Save",
       cancel: "Cancel",
       edit: "Edit",
       delete: "Delete",
       pieces: "pcs",
+      sizeTypeOptions: {
+        none: "No sizes",
+        ski_length: "Ski/snowboard length",
+        boot_size: "Boot size",
+        clothing: "Clothing size",
+      },
     },
     bookings: {
       columns: {
@@ -450,6 +524,7 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [users,    setUsers]    = useState<User[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [topUsers, setTopUsers] = useState<TopUser[]>([]);
@@ -525,6 +600,7 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
         fetch(`${API}/admin/bookings`, { headers: headers() }),
         fetch(`${API}/admin/users`,    { headers: headers() }),
       ]);
+      const cRes = await fetch(`${API}/equipment/categories`);
       if (pRes.status === 401 || pRes.status === 403) {
         router.push(`/${l}/auth`);
         return;
@@ -532,6 +608,7 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
       setProducts(await pRes.json());
       setBookings(await bRes.json());
       setUsers(await uRes.json());
+      if (cRes.ok) setCategories(await cRes.json());
       await loadAnalytics();
     } catch {
       setError(t.errors.connection);
@@ -593,6 +670,33 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
       alert(t.alerts.addRequired);
       return;
     }
+    if (!addForm.category_id) {
+      alert(t.alerts.categoryRequired);
+      return;
+    }
+    const parsedPrice = parseFloat(addForm.price);
+    const parsedDeposit = addForm.deposit === "" ? 0 : parseFloat(addForm.deposit);
+    const parsedStock = addForm.stock === "" ? 1 : parseInt(addForm.stock, 10);
+    const parsedTags = splitCommaValues(addForm.tags);
+    const parsedSizes = splitCommaValues(addForm.sizes);
+    const parsedPeakMonths = splitCommaValues(addForm.peak_months)
+      .map((month) => Number(month))
+      .filter((month) => Number.isInteger(month) && month >= 1 && month <= 12);
+    if (
+      !Number.isFinite(parsedPrice) ||
+      parsedPrice <= 0 ||
+      !Number.isFinite(parsedDeposit) ||
+      parsedDeposit < 0 ||
+      Number.isNaN(parsedStock) ||
+      parsedStock < 0
+    ) {
+      alert(t.alerts.invalidNumbers);
+      return;
+    }
+    if (addForm.peak_months.trim() && parsedPeakMonths.length !== splitCommaValues(addForm.peak_months).length) {
+      alert(t.alerts.invalidMonths);
+      return;
+    }
     setAdding(true);
     try {
       const res = await fetch(`${API}/admin/products`, {
@@ -600,10 +704,17 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
         headers: headers(),
         body: JSON.stringify({
           name:        addForm.name,
+          category_id: Number(addForm.category_id),
           description: addForm.description,
-          price:       parseFloat(addForm.price),
-          stock:       parseInt(addForm.stock) || 1,
+          price:       parsedPrice,
+          deposit:     parsedDeposit,
+          stock:       parsedStock,
           image_url:   addForm.image_url,
+          is_featured: addForm.is_featured,
+          tags:        parsedTags,
+          sizes:       parsedSizes,
+          size_type:   addForm.size_type,
+          peak_months: parsedPeakMonths,
         }),
       });
       if (!res.ok) { alert((await res.json()).error || t.errors.generic); return; }
@@ -701,6 +812,10 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
     parts[1] = code;
     router.push(parts.join("/") || `/${code}`);
   };
+  const categoryLabel = (category: Category) =>
+    l === "kk" ? category.name_kk : l === "en" ? category.name_en : category.name_ru;
+  const splitCommaValues = (value: string) =>
+    value.split(",").map((item) => item.trim()).filter(Boolean);
 
   // ── Рендер ─────────────────────────────────────────────────────────────────
   return (
@@ -797,22 +912,83 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
                         placeholder={t.products.placeholders.name} className={input} />
                     </Field>
 
+                    <Field label={t.products.fields.category}>
+                      <select
+                        value={addForm.category_id}
+                        onChange={e => setAddForm({...addForm, category_id: e.target.value})}
+                        className={input}
+                      >
+                        <option value="">{t.products.placeholders.category}</option>
+                        {categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {categoryLabel(category)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
                     <Field label={t.products.fields.price}>
                       <input type="number" value={addForm.price}
                         onChange={e => setAddForm({...addForm, price: e.target.value})}
-                        placeholder={t.products.placeholders.price} className={input} />
+                        placeholder={t.products.placeholders.price} className={input} min="1" />
+                    </Field>
+
+                    <Field label={t.products.fields.deposit}>
+                      <input type="number" value={addForm.deposit}
+                        onChange={e => setAddForm({...addForm, deposit: e.target.value})}
+                        placeholder={t.products.placeholders.deposit} className={input} min="0" />
                     </Field>
 
                     <Field label={t.products.fields.stock}>
                       <input type="number" value={addForm.stock}
                         onChange={e => setAddForm({...addForm, stock: e.target.value})}
-                        placeholder={t.products.placeholders.stock} className={input} />
+                        placeholder={t.products.placeholders.stock} className={input} min="0" />
+                    </Field>
+
+                    <Field label={t.products.fields.sizeType}>
+                      <select
+                        value={addForm.size_type}
+                        onChange={e => setAddForm({...addForm, size_type: e.target.value})}
+                        className={input}
+                      >
+                        <option value="none">{t.products.sizeTypeOptions.none}</option>
+                        <option value="ski_length">{t.products.sizeTypeOptions.ski_length}</option>
+                        <option value="boot_size">{t.products.sizeTypeOptions.boot_size}</option>
+                        <option value="clothing">{t.products.sizeTypeOptions.clothing}</option>
+                      </select>
                     </Field>
 
                     <Field label={t.products.fields.description}>
                       <input value={addForm.description}
                         onChange={e => setAddForm({...addForm, description: e.target.value})}
                         placeholder={t.products.placeholders.description} className={input} />
+                    </Field>
+
+                    <Field label={t.products.fields.tags}>
+                      <input
+                        value={addForm.tags}
+                        onChange={e => setAddForm({...addForm, tags: e.target.value})}
+                        placeholder={t.products.placeholders.tags}
+                        className={input}
+                      />
+                    </Field>
+
+                    <Field label={t.products.fields.sizes}>
+                      <input
+                        value={addForm.sizes}
+                        onChange={e => setAddForm({...addForm, sizes: e.target.value})}
+                        placeholder={t.products.placeholders.sizes}
+                        className={input}
+                      />
+                    </Field>
+
+                    <Field label={t.products.fields.peakMonths}>
+                      <input
+                        value={addForm.peak_months}
+                        onChange={e => setAddForm({...addForm, peak_months: e.target.value})}
+                        placeholder={t.products.placeholders.peakMonths}
+                        className={input}
+                      />
                     </Field>
 
                     <Field label={t.products.fields.imageUrl}>
@@ -843,6 +1019,18 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
                           {uploadingAddImage ? t.products.uploading : t.products.uploadHint}
                         </p>
                       </div>
+                    </Field>
+
+                    <Field label={t.products.columns.featured}>
+                      <label className="flex h-full min-h-[42px] items-center gap-2 rounded-lg border px-3 py-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={addForm.is_featured}
+                          onChange={e => setAddForm({...addForm, is_featured: e.target.checked})}
+                          className="h-4 w-4 rounded"
+                        />
+                        <span>{t.products.featuredCheckbox}</span>
+                      </label>
                     </Field>
 
                     <div className="flex items-end">

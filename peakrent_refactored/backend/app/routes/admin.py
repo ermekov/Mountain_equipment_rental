@@ -32,7 +32,7 @@ from werkzeug.utils import secure_filename
 from sqlalchemy import func, desc
 
 from ..extensions import db
-from ..models import User, Equipment, Booking, BookingItem
+from ..models import User, Equipment, Booking, BookingItem, Category
 from ..utils.auth import admin_required, manager_required, make_token
 
 admin_bp = Blueprint("admin", __name__)
@@ -540,18 +540,84 @@ def admin_create_product():
     if not data.get("name") or not data.get("price"):
         return jsonify({"error": "Поля 'name' и 'price' обязательны"}), 400
 
+    name = str(data.get("name", "")).strip()
+    if not name:
+        return jsonify({"error": "Название не может быть пустым"}), 400
+
+    try:
+        category_id = int(data.get("category_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Категория обязательна"}), 400
+
+    category = Category.query.get(category_id)
+    if not category:
+        return jsonify({"error": "Выбрана несуществующая категория"}), 400
+
+    try:
+        price = float(data["price"])
+    except (TypeError, ValueError):
+        return jsonify({"error": "Цена должна быть числом"}), 400
+    if price <= 0:
+        return jsonify({"error": "Цена должна быть больше 0"}), 400
+
+    try:
+        deposit = float(data.get("deposit", 0) or 0)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Залог должен быть числом"}), 400
+    if deposit < 0:
+        return jsonify({"error": "Залог не может быть отрицательным"}), 400
+
+    try:
+        stock = int(data.get("stock", 1))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Остаток должен быть целым числом"}), 400
+    if stock < 0:
+        return jsonify({"error": "Остаток не может быть отрицательным"}), 400
+
+    description = str(data.get("description", "")).strip()
+    slug_base = secure_filename(name).lower().replace("_", "-").strip("-") or "product"
+    size_type = str(data.get("size_type", "none")).strip() or "none"
+    allowed_size_types = {"none", "ski_length", "boot_size", "clothing"}
+    if size_type not in allowed_size_types:
+        return jsonify({"error": "Недопустимый тип размеров"}), 400
+
+    raw_tags = data.get("tags", [])
+    if not isinstance(raw_tags, list):
+        return jsonify({"error": "Теги должны передаваться списком"}), 400
+    tags = [str(tag).strip() for tag in raw_tags if str(tag).strip()]
+
+    raw_sizes = data.get("sizes", [])
+    if not isinstance(raw_sizes, list):
+        return jsonify({"error": "Размеры должны передаваться списком"}), 400
+    sizes = [{"value": str(size).strip(), "label": str(size).strip()} for size in raw_sizes if str(size).strip()]
+
+    raw_peak_months = data.get("peak_months", [])
+    if not isinstance(raw_peak_months, list):
+        return jsonify({"error": "Пиковые месяцы должны передаваться списком"}), 400
+    try:
+        peak_months = [int(month) for month in raw_peak_months]
+    except (TypeError, ValueError):
+        return jsonify({"error": "Пиковые месяцы должны быть числами"}), 400
+    if any(month < 1 or month > 12 for month in peak_months):
+        return jsonify({"error": "Пиковые месяцы должны быть в диапазоне от 1 до 12"}), 400
+
     item = Equipment(
-        slug=data["name"].lower().replace(" ", "-") + f"-{int(datetime.utcnow().timestamp())}",
-        name_ru=data["name"],
-        name_kk=data.get("name_kk", data["name"]),
-        name_en=data.get("name_en", data["name"]),
-        description_ru=data.get("description", ""),
-        description_kk=data.get("description", ""),
-        description_en=data.get("description", ""),
-        price_per_day=float(data["price"]),
-        deposit_amount=float(data.get("deposit", 0)),
-        stock=int(data.get("stock", 1)),
+        slug=f"{slug_base}-{int(datetime.utcnow().timestamp())}",
+        category_id=category.id,
+        name_ru=name,
+        name_kk=data.get("name_kk", name),
+        name_en=data.get("name_en", name),
+        description_ru=description,
+        description_kk=description,
+        description_en=description,
+        price_per_day=price,
+        deposit_amount=deposit,
+        stock=stock,
         images=json.dumps([data["image_url"]]) if data.get("image_url") else "[]",
+        tags=json.dumps(tags),
+        sizes=json.dumps(sizes),
+        peak_months=json.dumps(peak_months),
+        size_type=size_type,
         is_active=True,
         is_featured=data.get("is_featured", False),
     )

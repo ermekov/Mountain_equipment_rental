@@ -19,9 +19,9 @@ apiClient.interceptors.request.use((config) => {
 
 // ── Авторизация ───────────────────────────────────────────────────────────────
 export const authAPI = {
-  sendOtp:   (data: { phone: string }) =>
+  sendOtp:   (data: { email?: string; phone?: string }) =>
     apiClient.post<{ message: string; dev_code?: string }>("/auth/send-otp", data),
-  verifyOtp: (data: { phone: string; code: string }) =>
+  verifyOtp: (data: { phone?: string; email?: string; code: string }) =>
     apiClient.post<{ access_token: string; user: User }>("/auth/verify-otp", data),
   register:  (data: { name: string; email: string; phone: string; password: string; code: string }) =>
     apiClient.post<{ access_token: string; user: User }>("/auth/register", data),

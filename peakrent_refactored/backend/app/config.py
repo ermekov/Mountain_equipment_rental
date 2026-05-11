@@ -69,6 +69,14 @@ class Config:
     SMS_TOKEN  = os.environ.get("SMSAPI_TOKEN", "")
     SMS_SENDER = os.environ.get("SMSAPI_SENDER", "PeakRent")
 
+    # ── SMTP / Email OTP ──────────────────────────────────────────────────────
+    SMTP_HOST = os.environ.get("SMTP_HOST", "")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+    SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "")
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+    SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", SMTP_USERNAME)
+    SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() == "true"
+
     # ── Режим разработки ──────────────────────────────────────────────────────
     # DEV_MODE=True → все OTP коды = "123456" (не нужен реальный SMS)
     DEV_MODE = os.environ.get("DEV_OTP_BYPASS", "true").lower() == "true"

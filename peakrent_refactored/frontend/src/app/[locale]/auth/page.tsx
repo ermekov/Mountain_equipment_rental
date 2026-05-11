@@ -26,16 +26,16 @@ const text = {
     registerTab: "Регистрация",
     loginTitle: "Войти в аккаунт",
     registerTitle: "Создать аккаунт",
-    verifyTitle: "Подтвердите номер",
+    verifyTitle: "Подтвердите email",
     loginSubtitle: "Вход по email или номеру телефона",
-    registerSubtitle: "Укажите данные и подтвердите номер",
+    registerSubtitle: "Укажите данные и подтвердите email",
     verifySubtitle: "Мы отправили код на",
     name: "Имя",
     email: "Email",
     phone: "Телефон",
     loginField: "Email или телефон",
     password: "Пароль",
-    code: "Код из SMS",
+    code: "Код из email",
     sendCode: "Получить код",
     registerBtn: "Зарегистрироваться",
     loginBtn: "Войти",
@@ -48,10 +48,11 @@ const text = {
     fillCode: "Введите 6-значный код",
     shortPassword: "Пароль должен быть не короче 6 символов",
     invalidPhone: "Введите корректный номер",
-    otpSent: "SMS отправлено",
+    invalidEmail: "Введите корректный email",
+    otpSent: "Код отправлен на email",
     registerSuccess: "Аккаунт создан",
     loginSuccess: "С возвращением",
-    genericSmsError: "Ошибка отправки SMS",
+    genericSmsError: "Ошибка отправки кода",
     genericLoginError: "Ошибка входа",
   },
   kk: {
@@ -59,16 +60,16 @@ const text = {
     registerTab: "Тіркелу",
     loginTitle: "Аккаунтқа кіру",
     registerTitle: "Аккаунт ашу",
-    verifyTitle: "Нөмірді растау",
+    verifyTitle: "Email растау",
     loginSubtitle: "Email немесе телефон арқылы кіру",
-    registerSubtitle: "Мәліметтерді толтырып, нөмірді растаңыз",
-    verifySubtitle: "Код мына нөмірге жіберілді:",
+    registerSubtitle: "Мәліметтерді толтырып, email растаңыз",
+    verifySubtitle: "Код мына email-ге жіберілді:",
     name: "Аты-жөні",
     email: "Email",
     phone: "Телефон нөмірі",
     loginField: "Email немесе телефон",
     password: "Құпия сөз",
-    code: "SMS коды",
+    code: "Email коды",
     sendCode: "Код алу",
     registerBtn: "Тіркелу",
     loginBtn: "Кіру",
@@ -81,10 +82,11 @@ const text = {
     fillCode: "6 таңбалы кодты енгізіңіз",
     shortPassword: "Құпия сөз кемінде 6 таңба болуы керек",
     invalidPhone: "Дұрыс нөмір енгізіңіз",
-    otpSent: "SMS жіберілді",
+    invalidEmail: "Дұрыс email енгізіңіз",
+    otpSent: "Код email-ге жіберілді",
     registerSuccess: "Аккаунт ашылды",
     loginSuccess: "Қайта келдіңіз",
-    genericSmsError: "SMS жіберу қатесі",
+    genericSmsError: "Код жіберу қатесі",
     genericLoginError: "Кіру қатесі",
   },
   en: {
@@ -92,16 +94,16 @@ const text = {
     registerTab: "Register",
     loginTitle: "Sign in",
     registerTitle: "Create account",
-    verifyTitle: "Verify phone",
+    verifyTitle: "Verify email",
     loginSubtitle: "Sign in with email or phone number",
-    registerSubtitle: "Fill in your details and verify your phone",
+    registerSubtitle: "Fill in your details and verify your email",
     verifySubtitle: "We sent a code to",
     name: "Name",
     email: "Email",
     phone: "Phone number",
     loginField: "Email or phone",
     password: "Password",
-    code: "SMS code",
+    code: "Email code",
     sendCode: "Get code",
     registerBtn: "Register",
     loginBtn: "Sign in",
@@ -114,10 +116,11 @@ const text = {
     fillCode: "Enter the 6-digit code",
     shortPassword: "Password must be at least 6 characters",
     invalidPhone: "Enter a valid phone number",
-    otpSent: "SMS sent",
+    invalidEmail: "Enter a valid email",
+    otpSent: "Code sent to email",
     registerSuccess: "Account created",
     loginSuccess: "Welcome back",
-    genericSmsError: "Failed to send SMS",
+    genericSmsError: "Failed to send code",
     genericLoginError: "Login failed",
   },
 } as const;
@@ -163,6 +166,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
   };
 
   const normalizedPhone = () => "+" + phone.replace(/\D/g, "").slice(0, 11);
+  const normalizedEmail = () => email.trim().toLowerCase();
 
   const resetRegisterFlow = () => {
     setRegisterStep("form");
@@ -171,8 +175,13 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
   };
 
   const sendOtp = useCallback(async () => {
-    if (!name.trim() || !email.trim() || !password || phone.replace(/\D/g, "").length < 11) {
+    const normalizedEmailValue = normalizedEmail();
+    if (!name.trim() || !normalizedEmailValue || !password || phone.replace(/\D/g, "").length < 11) {
       toast.error(!phone.trim() || phone.replace(/\D/g, "").length < 11 ? t.invalidPhone : t.fillAll);
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmailValue)) {
+      toast.error(t.invalidEmail);
       return;
     }
     if (password.length < 6) {
@@ -182,7 +191,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
 
     setLoading(true);
     try {
-      const res = await authAPI.sendOtp({ phone: normalizedPhone() });
+      const res = await authAPI.sendOtp({ email: normalizedEmailValue });
       setRegisterStep("otp");
       setCountdown(60);
       if (res.data.dev_code) {
@@ -256,7 +265,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
       ? t.loginSubtitle
       : registerStep === "form"
         ? t.registerSubtitle
-        : `${t.verifySubtitle} ${phone}`;
+        : `${t.verifySubtitle} ${email.trim()}`;
 
   return (
     <>
@@ -281,7 +290,7 @@ export default function AuthPage({ params }: { params: { locale: string } }) {
                 ) : registerStep === "form" ? (
                   <UserRound className="w-6 h-6 text-ice" />
                 ) : (
-                  <Phone className="w-6 h-6 text-ice" />
+                  <Mail className="w-6 h-6 text-ice" />
                 )}
               </div>
 

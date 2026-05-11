@@ -34,6 +34,7 @@ from sqlalchemy import func, desc
 from ..extensions import db
 from ..models import User, Equipment, Booking, BookingItem, Category
 from ..utils.auth import admin_required, manager_required, make_token
+from ..services.email_service import EmailService
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -427,6 +428,7 @@ def admin_update_booking(booking_id):
     """
     booking = Booking.query.get_or_404(booking_id)
     data    = request.get_json() or {}
+    status_changed = False
 
     allowed_statuses = ("pending", "confirmed", "completed", "cancelled")
     new_status = data.get("status")
@@ -436,6 +438,7 @@ def admin_update_booking(booking_id):
 
     if new_status:
         booking.status = new_status
+        status_changed = True
         # При подтверждении — сохраняем время
         if new_status == "confirmed" and not booking.confirmed_at:
             booking.confirmed_at = datetime.utcnow().isoformat()
@@ -445,6 +448,14 @@ def admin_update_booking(booking_id):
         booking.notes = data["notes"]
 
     db.session.commit()
+    if status_changed and booking.user and booking.user.email:
+        EmailService.send_booking_update(
+            booking.user.email,
+            booking.user.name or "",
+            booking,
+            booking.status,
+            booking.notes or "",
+        )
     return jsonify(booking.to_dict()), 200
 
 

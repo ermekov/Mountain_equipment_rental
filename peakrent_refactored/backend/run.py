@@ -34,6 +34,9 @@ app = create_app()
 if __name__ == "__main__":
     port  = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_DEBUG", "1") == "1"
+    dev_otp = os.environ.get("DEV_OTP_BYPASS", "true").lower() == "true"
+    smtp_host = os.environ.get("SMTP_HOST", "").strip()
+    otp_mode = "DEV (123456)" if dev_otp else ("Email" if smtp_host else "SMS")
 
     print("\n" + "="*55)
     print("🏔  PeakRent.kz — Backend Server")
@@ -41,7 +44,7 @@ if __name__ == "__main__":
     print(f"   URL:      http://localhost:{port}")
     print(f"   Debug:    {debug}")
     print(f"   OpenAI:   {'✅ настроен' if os.environ.get('OPENAI_API_KEY') else '❌ нет ключа'}")
-    print(f"   OTP режим: {'DEV (123456)' if os.environ.get('DEV_OTP_BYPASS','true')=='true' else 'SMS'}")
+    print(f"   OTP режим: {otp_mode}")
     print("="*55 + "\n")
 
     app.run(host="0.0.0.0", port=port, debug=debug)

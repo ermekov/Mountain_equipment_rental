@@ -62,10 +62,10 @@ class User(db.Model):
 
 class OTPCode(db.Model):
     """
-    Одноразовый SMS код для входа обычных пользователей.
+    Одноразовый код подтверждения для телефона или email.
 
     Жизненный цикл:
-        1. Пользователь вводит телефон
+        1. Пользователь вводит телефон или email
         2. Создаётся OTPCode (TTL 10 минут)
         3. Пользователь вводит код → used=True → выдаём JWT
     """
@@ -73,7 +73,7 @@ class OTPCode(db.Model):
     __tablename__ = "otp_codes"
 
     id         = db.Column(db.Integer,  primary_key=True)
-    phone      = db.Column(db.String(20),  nullable=False)
+    phone      = db.Column(db.String(120), nullable=False)
     code       = db.Column(db.String(6),   nullable=False)
     expires_at = db.Column(db.DateTime,    nullable=False)
     used       = db.Column(db.Boolean,     default=False)

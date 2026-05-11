@@ -23,6 +23,7 @@ from flask import Blueprint, request, jsonify, g
 from ..extensions import db
 from ..models import User, Equipment, Booking, BookingItem
 from ..utils.auth import login_required, optional_auth
+from ..services.email_service import EmailService
 
 bookings_bp = Blueprint("bookings", __name__)
 
@@ -156,6 +157,13 @@ def create_booking():
         booking.status = "confirmed"
 
     db.session.commit()
+    if user.email:
+        EmailService.send_booking_update(
+            user.email,
+            user.name or "",
+            booking,
+            booking.status,
+        )
     return jsonify(booking.to_dict()), 201
 
 
@@ -216,5 +224,12 @@ def cancel_booking(booking_id):
 
     booking.status = "cancelled"
     db.session.commit()
+    if booking.user and booking.user.email:
+        EmailService.send_booking_update(
+            booking.user.email,
+            booking.user.name or "",
+            booking,
+            "cancelled",
+        )
 
     return jsonify({"message": "Бронирование успешно отменено"}), 200

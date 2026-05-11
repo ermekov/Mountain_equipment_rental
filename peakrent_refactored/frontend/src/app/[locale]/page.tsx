@@ -70,14 +70,6 @@ export default async function HomePage({
 
           <div className="relative z-10 container-page py-20">
             <div className="max-w-xl">
-              {/* Бейдж */}
-              <div className="inline-flex items-center gap-2 bg-ice/15 border border-ice/30 rounded-full px-4 py-1.5 mb-5">
-                <Zap className="w-3.5 h-3.5 text-ice" />
-                <span className="text-ice text-xs font-bold uppercase tracking-wide">
-                  {l === "ru" ? "С AI-рекомендациями" : l === "kk" ? "AI ұсыныстарымен" : "AI-Powered"}
-                </span>
-              </div>
-
               {/* Заголовок */}
               <h1
                 className="text-white mb-4 leading-[1.05]"
@@ -125,6 +117,14 @@ export default async function HomePage({
                     <span className="text-ice/80">{it.icon}</span>{it.t}
                   </div>
                 ))}
+              </div>
+              <div className="pt-4">
+                <div className="inline-flex items-center gap-2 bg-ice/15 border border-ice/30 rounded-full px-4 py-1.5">
+                  <Zap className="w-3.5 h-3.5 text-ice" />
+                  <span className="text-ice text-xs font-bold uppercase tracking-wide">
+                    {l === "ru" ? "С AI-рекомендациями" : l === "kk" ? "AI ұсыныстарымен" : "AI-Powered"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

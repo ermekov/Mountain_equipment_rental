@@ -24,6 +24,7 @@ from ..extensions import db
 from ..models import User, OTPCode
 from ..utils.auth import make_token, login_required
 from ..services.sms_service import SMSService
+from ..services.email_service import EmailService
 
 # Создаём Blueprint
 auth_bp = Blueprint("auth", __name__)
@@ -38,10 +39,14 @@ def _normalize_phone(phone: str) -> str:
     return f"+{digits}" if digits else ""
 
 
-def _find_valid_otp(phone: str, code: str):
+def _normalize_email(email: str) -> str:
+    return (email or "").strip().lower()
+
+
+def _find_valid_otp(identifier: str, code: str):
     return (
         OTPCode.query
-        .filter_by(phone=phone, code=code, used=False)
+        .filter_by(phone=identifier, code=code, used=False)
         .filter(OTPCode.expires_at > datetime.utcnow())
         .first()
     )
@@ -50,42 +55,49 @@ def _find_valid_otp(phone: str, code: str):
 @auth_bp.route("/send-otp", methods=["POST"])
 def send_otp():
     """
-    Отправляет OTP код на указанный номер телефона.
+    Отправляет OTP код на email для регистрации.
 
-    Body: { "phone": "+77071234567" }
+    Body: { "email": "user@example.com" }
     Response: { "message": "OTP отправлен" }
     Dev-mode: { "message": "OTP отправлен", "dev_code": "123456" }
     """
-    data  = request.get_json() or {}
+    data = request.get_json() or {}
+    email = _normalize_email(data.get("email", ""))
     phone = _normalize_phone(data.get("phone", "").strip())
+    identifier = email or phone
 
-    if not phone:
-        return jsonify({"error": "Поле 'phone' обязательно"}), 400
+    if not identifier:
+        return jsonify({"error": "Field 'email' is required"}), 400
 
-    # Валидация формата телефона
-    digits = phone.replace("+", "").replace(" ", "").replace("-", "")
-    if not digits.isdigit() or len(digits) < 10:
-        return jsonify({"error": "Неверный формат телефона. Используйте +77XXXXXXXXX"}), 400
+    if email and ("@" not in email or "." not in email.split("@")[-1]):
+        return jsonify({"error": "Invalid email format"}), 400
+
+    if not email:
+        digits = phone.replace("+", "").replace(" ", "").replace("-", "")
+        if not digits.isdigit() or len(digits) < 10:
+            return jsonify({"error": "Неверный формат телефона. Используйте +77XXXXXXXXX"}), 400
 
     # Генерируем OTP код
     code = SMSService.generate_otp()
 
-    # Инвалидируем предыдущие неиспользованные коды для этого номера
-    OTPCode.query.filter_by(phone=phone, used=False).delete()
+    # Инвалидируем предыдущие неиспользованные коды
+    OTPCode.query.filter_by(phone=identifier, used=False).delete()
 
     # Сохраняем новый код (действителен 10 минут)
     otp = OTPCode(
-        phone=phone,
+        phone=identifier,
         code=code,
         expires_at=datetime.utcnow() + timedelta(minutes=10),
     )
     db.session.add(otp)
+
+    delivered = EmailService.send_otp(email, code) if email else SMSService.send_otp(phone, code)
+    if not delivered:
+        db.session.rollback()
+        return jsonify({"error": "Failed to send verification code"}), 502
+
     db.session.commit()
-
-    # Отправляем SMS
-    SMSService.send_otp(phone, code)
-
-    response = {"message": "OTP отправлен на " + phone}
+    response = {"message": "OTP отправлен на " + identifier}
 
     # В dev-режиме возвращаем код для удобства тестирования
     if current_app.config.get("DEV_MODE", True):
@@ -104,13 +116,15 @@ def verify_otp():
     """
     data  = request.get_json() or {}
     phone = _normalize_phone(data.get("phone", "").strip())
-    code  = data.get("code", "").strip()
+    email = _normalize_email(data.get("email", ""))
+    code = data.get("code", "").strip()
+    identifier = email or phone
 
-    if not phone or not code:
-        return jsonify({"error": "Поля 'phone' и 'code' обязательны"}), 400
+    if not identifier or not code:
+        return jsonify({"error": "Fields 'email/phone' and 'code' are required"}), 400
 
     # Ищем актуальный неиспользованный код
-    otp = _find_valid_otp(phone, code)
+    otp = _find_valid_otp(identifier, code)
 
     if not otp:
         return jsonify({"error": "Неверный или истёкший код подтверждения"}), 400
@@ -119,10 +133,12 @@ def verify_otp():
     otp.used = True
 
     # Ищем или создаём пользователя
-    user = User.query.filter_by(phone=phone).first()
+    user = User.query.filter_by(email=email).first() if email else User.query.filter_by(phone=phone).first()
     if not user:
-        # Новый пользователь — регистрируем автоматически
-        user = User(phone=phone, name=phone[-4:])  # Имя по умолчанию — последние 4 цифры
+        if email:
+            user = User(email=email, name=email.split("@")[0], role="user")
+        else:
+            user = User(phone=phone, name=phone[-4:])
         db.session.add(user)
 
     db.session.commit()
@@ -152,7 +168,7 @@ def register():
     if len(password) < 6:
         return jsonify({"error": "Password must contain at least 6 characters"}), 400
 
-    otp = _find_valid_otp(phone, code)
+    otp = _find_valid_otp(email, code)
     if not otp:
         return jsonify({"error": "Invalid or expired verification code"}), 400
 

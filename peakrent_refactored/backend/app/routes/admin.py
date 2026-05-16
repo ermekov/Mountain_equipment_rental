@@ -41,63 +41,78 @@ admin_bp = Blueprint("admin", __name__)
 EXPORT_I18N = {
     "ru": {
         "filename": "analytics",
+        "report_title": "Отчет по аналитике",
+        "period_label": "Период",
+        "generated_label": "Сформирован",
+        "summary_sheet_title": "Сводка по показателям",
+        "products_sheet_title": "Топ товаров",
+        "users_sheet_title": "Топ клиентов",
         "types": {
             "summary": "summary",
             "products": "top-products",
             "users": "top-users",
         },
-        "summary_headers": [
-            "date_from",
-            "date_to",
-            "total_revenue",
-            "total_bookings",
-            "confirmed_bookings",
-            "cancelled_bookings",
-            "avg_booking_value",
-            "active_users",
+        "summary_headers": ["Показатель", "Значение"],
+        "summary_labels": [
+            "Общая выручка (₸)",
+            "Всего бронирований",
+            "Подтвержденные бронирования",
+            "Отмененные бронирования",
+            "Средний чек (₸)",
+            "Активные клиенты",
         ],
-        "products_headers": ["equipment_id", "name", "rental_count", "revenue"],
-        "users_headers": ["user_id", "name", "phone", "booking_count", "total_spent"],
+        "products_headers": ["№", "ID товара", "Название", "Количество аренд", "Выручка (₸)"],
+        "users_headers": ["№", "ID клиента", "Имя", "Телефон", "Бронирований", "Потрачено (₸)"],
     },
     "kk": {
         "filename": "analitika",
+        "report_title": "Аналитика есебі",
+        "period_label": "Кезең",
+        "generated_label": "Жасалған уақыты",
+        "summary_sheet_title": "Негізгі көрсеткіштер",
+        "products_sheet_title": "Топ тауарлар",
+        "users_sheet_title": "Топ клиенттер",
         "types": {
             "summary": "qysqasha-esep",
             "products": "top-tauarlar",
             "users": "top-klientter",
         },
-        "summary_headers": [
-            "bastalu_kuni",
-            "ayaqtalu_kuni",
-            "jalpy_tabys",
-            "jalpy_bron_sany",
-            "rastalgan_bron",
-            "bas_tartylgan_bron",
-            "ortasha_chek",
-            "belsendi_klientter",
+        "summary_headers": ["Көрсеткіш", "Мәні"],
+        "summary_labels": [
+            "Жалпы табыс (₸)",
+            "Барлық бронь саны",
+            "Расталған броньдар",
+            "Бас тартылған броньдар",
+            "Орташа чек (₸)",
+            "Белсенді клиенттер",
         ],
-        "products_headers": ["tauar_id", "atauy", "jalga_alu_sany", "tabys"],
-        "users_headers": ["user_id", "aty", "telefon", "bron_sany", "barlyq_shygyn"],
+        "products_headers": ["№", "Тауар ID", "Атауы", "Жалға алу саны", "Табыс (₸)"],
+        "users_headers": ["№", "Клиент ID", "Аты", "Телефон", "Бронь саны", "Жалпы шығын (₸)"],
     },
     "en": {
         "filename": "analytics",
+        "report_title": "Analytics report",
+        "period_label": "Period",
+        "generated_label": "Generated at",
+        "summary_sheet_title": "Summary metrics",
+        "products_sheet_title": "Top products",
+        "users_sheet_title": "Top customers",
         "types": {
             "summary": "summary",
             "products": "top-products",
             "users": "top-users",
         },
-        "summary_headers": [
-            "date_from",
-            "date_to",
-            "total_revenue",
-            "total_bookings",
-            "confirmed_bookings",
-            "cancelled_bookings",
-            "average_order_value",
-            "active_users",
+        "summary_headers": ["Metric", "Value"],
+        "summary_labels": [
+            "Total revenue (₸)",
+            "Total bookings",
+            "Confirmed bookings",
+            "Cancelled bookings",
+            "Average order value (₸)",
+            "Active customers",
         ],
-        "products_headers": ["product_id", "name", "rental_count", "revenue"],
-        "users_headers": ["user_id", "name", "phone", "booking_count", "total_spent"],
+        "products_headers": ["No.", "Product ID", "Name", "Rental count", "Revenue (₸)"],
+        "users_headers": ["No.", "Customer ID", "Name", "Phone", "Bookings", "Total spent (₸)"],
     },
 }
 
@@ -128,6 +143,24 @@ def _analytics_base_query(start_dt, end_dt):
         Booking.created_at >= start_dt,
         Booking.created_at <= end_dt,
     )
+
+
+def _format_export_date(value):
+    return value.strftime("%d.%m.%Y")
+
+
+def _write_export_meta(writer, export_locale, section_title, start_dt, end_dt):
+    writer.writerow([export_locale["report_title"]])
+    writer.writerow([section_title])
+    writer.writerow([
+        export_locale["period_label"],
+        f'{_format_export_date(start_dt)} - {_format_export_date(end_dt)}'
+    ])
+    writer.writerow([
+        export_locale["generated_label"],
+        datetime.utcnow().strftime("%d.%m.%Y %H:%M UTC")
+    ])
+    writer.writerow([])
 
 
 def _summary_payload(start_dt, end_dt):
@@ -222,6 +255,41 @@ def _top_users_payload(start_dt, end_dt, limit=10):
         }
         for row in rows
     ]
+
+
+def _daily_revenue_payload(start_dt, end_dt):
+    rows = (
+        db.session.query(
+            func.date(Booking.created_at).label("day"),
+            func.sum(Booking.total_price).label("revenue"),
+        )
+        .filter(
+            Booking.created_at >= start_dt,
+            Booking.created_at <= end_dt,
+            Booking.status.in_(["confirmed", "completed"]),
+        )
+        .group_by(func.date(Booking.created_at))
+        .order_by(func.date(Booking.created_at))
+        .all()
+    )
+
+    revenue_by_day = {
+        row.day.isoformat() if hasattr(row.day, "isoformat") else str(row.day): int(row.revenue or 0)
+        for row in rows
+    }
+
+    points = []
+    cursor = start_dt.date()
+    last_day = end_dt.date()
+    while cursor <= last_day:
+        key = cursor.isoformat()
+        points.append({
+            "date": key,
+            "revenue": revenue_by_day.get(key, 0),
+        })
+        cursor += timedelta(days=1)
+
+    return points
 
 
 # ─────────────────────────────────────────────────────────
@@ -332,6 +400,13 @@ def admin_analytics_top_users():
     return jsonify(_top_users_payload(start_dt, end_dt, limit)), 200
 
 
+@admin_bp.route("/analytics/daily-revenue", methods=["GET"])
+@admin_required
+def admin_analytics_daily_revenue():
+    start_dt, end_dt = _parse_date_range()
+    return jsonify(_daily_revenue_payload(start_dt, end_dt)), 200
+
+
 @admin_bp.route("/analytics/export", methods=["GET"])
 @admin_required
 def admin_analytics_export():
@@ -341,31 +416,61 @@ def admin_analytics_export():
     export_locale = EXPORT_I18N.get(locale, EXPORT_I18N["ru"])
 
     output = io.StringIO()
-    writer = csv.writer(output)
+    writer = csv.writer(output, delimiter=";")
 
     if export_type == "products":
         rows = _top_products_payload(start_dt, end_dt, limit=100)
+        _write_export_meta(
+            writer,
+            export_locale,
+            export_locale["products_sheet_title"],
+            start_dt,
+            end_dt,
+        )
         writer.writerow(export_locale["products_headers"])
-        for row in rows:
-            writer.writerow([row["equipment_id"], row["name"], row["rental_count"], row["revenue"]])
+        for index, row in enumerate(rows, start=1):
+            writer.writerow([
+                index,
+                row["equipment_id"],
+                row["name"],
+                row["rental_count"],
+                row["revenue"],
+            ])
     elif export_type == "users":
         rows = _top_users_payload(start_dt, end_dt, limit=100)
+        _write_export_meta(
+            writer,
+            export_locale,
+            export_locale["users_sheet_title"],
+            start_dt,
+            end_dt,
+        )
         writer.writerow(export_locale["users_headers"])
-        for row in rows:
-            writer.writerow([row["user_id"], row["name"], row["phone"], row["booking_count"], row["total_spent"]])
+        for index, row in enumerate(rows, start=1):
+            writer.writerow([
+                index,
+                row["user_id"],
+                row["name"],
+                row["phone"],
+                row["booking_count"],
+                row["total_spent"],
+            ])
     else:
         row = _summary_payload(start_dt, end_dt)
+        _write_export_meta(
+            writer,
+            export_locale,
+            export_locale["summary_sheet_title"],
+            start_dt,
+            end_dt,
+        )
         writer.writerow(export_locale["summary_headers"])
-        writer.writerow([
-            row["date_from"],
-            row["date_to"],
-            row["total_revenue"],
-            row["total_bookings"],
-            row["confirmed_bookings"],
-            row["cancelled_bookings"],
-            row["avg_booking_value"],
-            row["active_users"],
-        ])
+        writer.writerow([export_locale["summary_labels"][0], row["total_revenue"]])
+        writer.writerow([export_locale["summary_labels"][1], row["total_bookings"]])
+        writer.writerow([export_locale["summary_labels"][2], row["confirmed_bookings"]])
+        writer.writerow([export_locale["summary_labels"][3], row["cancelled_bookings"]])
+        writer.writerow([export_locale["summary_labels"][4], row["avg_booking_value"]])
+        writer.writerow([export_locale["summary_labels"][5], row["active_users"]])
 
     export_type_label = export_locale["types"].get(export_type, export_type)
     filename = f'{export_locale["filename"]}-{export_type_label}-{start_dt.date().isoformat()}-{end_dt.date().isoformat()}.csv'

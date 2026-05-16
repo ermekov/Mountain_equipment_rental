@@ -77,6 +77,10 @@ interface TopUser {
   booking_count: number;
   total_spent: number;
 }
+interface DailyRevenuePoint {
+  date: string;
+  revenue: number;
+}
 
 // Пустая форма для добавления нового товара
 const EMPTY_FORM = {
@@ -528,6 +532,7 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [topUsers, setTopUsers] = useState<TopUser[]>([]);
+  const [dailyRevenue, setDailyRevenue] = useState<DailyRevenuePoint[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState("");
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -621,15 +626,17 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
   async function loadAnalytics() {
     setAnalyticsLoading(true);
     try {
-      const [summaryRes, productsRes, usersRes] = await Promise.all([
+      const [summaryRes, productsRes, usersRes, dailyRevenueRes] = await Promise.all([
         fetch(`${API}/admin/analytics/summary?${analyticsQuery()}`, { headers: headers() }),
         fetch(`${API}/admin/analytics/top-products?${analyticsQuery()}`, { headers: headers() }),
         fetch(`${API}/admin/analytics/top-users?${analyticsQuery()}`, { headers: headers() }),
+        fetch(`${API}/admin/analytics/daily-revenue?${analyticsQuery()}`, { headers: headers() }),
       ]);
 
       if (summaryRes.ok) setSummary(await summaryRes.json());
       if (productsRes.ok) setTopProducts(await productsRes.json());
       if (usersRes.ok) setTopUsers(await usersRes.json());
+      if (dailyRevenueRes.ok) setDailyRevenue(await dailyRevenueRes.json());
     } catch {
       setError(t.errors.analytics);
     } finally {
@@ -816,6 +823,10 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
     l === "kk" ? category.name_kk : l === "en" ? category.name_en : category.name_ru;
   const splitCommaValues = (value: string) =>
     value.split(",").map((item) => item.trim()).filter(Boolean);
+  const revenueTrendTitle =
+    l === "kk" ? "Табыс динамикасы" : l === "en" ? "Revenue trend" : "Динамика выручки";
+  const productChartTitle =
+    l === "kk" ? "Тауар танымалдығы" : l === "en" ? "Product popularity" : "Популярность товаров";
 
   // ── Рендер ─────────────────────────────────────────────────────────────────
   return (
@@ -1368,6 +1379,24 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-5">
+                  <div className="bg-white rounded-xl border p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-gray-700">{revenueTrendTitle}</h3>
+                      {summary && <span className="text-xs text-gray-400">{summary.date_from} → {summary.date_to}</span>}
+                    </div>
+                    <RevenueLineChart points={dailyRevenue} />
+                  </div>
+
+                  <div className="bg-white rounded-xl border p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-gray-700">{productChartTitle}</h3>
+                      {analyticsLoading && <span className="text-xs text-gray-400">{t.analytics.loading}</span>}
+                    </div>
+                    <TopProductsBarChart items={topProducts.slice(0, 5)} />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {(["summary", "products", "users"] as const).map((type) => (
                     <button
@@ -1463,6 +1492,93 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function RevenueLineChart({ points }: { points: DailyRevenuePoint[] }) {
+  if (points.length === 0) {
+    return <div className="h-64 flex items-center justify-center text-sm text-gray-400">No data</div>;
+  }
+
+  const width = 640;
+  const height = 240;
+  const padding = 24;
+  const values = points.map((point) => point.revenue);
+  const maxValue = Math.max(...values, 1);
+  const minValue = 0;
+  const xStep = points.length > 1 ? (width - padding * 2) / (points.length - 1) : 0;
+  const yScale = (value: number) =>
+    height - padding - ((value - minValue) / (maxValue - minValue || 1)) * (height - padding * 2);
+
+  const path = points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${padding + xStep * index} ${yScale(point.revenue)}`)
+    .join(" ");
+
+  const areaPath = `${path} L ${padding + xStep * (points.length - 1)} ${height - padding} L ${padding} ${height - padding} Z`;
+
+  return (
+    <div className="space-y-3">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-64">
+        <defs>
+          <linearGradient id="revenueFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
+          const y = padding + (height - padding * 2) * tick;
+          return <line key={tick} x1={padding} x2={width - padding} y1={y} y2={y} stroke="#e5e7eb" strokeDasharray="4 4" />;
+        })}
+        <path d={areaPath} fill="url(#revenueFill)" />
+        <path d={path} fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        {points.map((point, index) => (
+          <circle
+            key={point.date}
+            cx={padding + xStep * index}
+            cy={yScale(point.revenue)}
+            r="4"
+            fill="#ffffff"
+            stroke="#2563eb"
+            strokeWidth="2"
+          />
+        ))}
+      </svg>
+      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 text-[11px] text-gray-400">
+        {points.filter((_, index) => index === 0 || index === points.length - 1 || index % Math.max(1, Math.ceil(points.length / 4)) === 0).map((point) => (
+          <span key={point.date}>{point.date.slice(5)}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TopProductsBarChart({ items }: { items: TopProduct[] }) {
+  if (items.length === 0) {
+    return <div className="h-64 flex items-center justify-center text-sm text-gray-400">No data</div>;
+  }
+
+  const maxRentals = Math.max(...items.map((item) => item.rental_count), 1);
+
+  return (
+    <div className="space-y-4">
+      {items.map((item, index) => (
+        <div key={item.equipment_id} className="space-y-1.5">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="font-medium text-gray-700 truncate">
+              {index + 1}. {item.name}
+            </span>
+            <span className="text-xs text-gray-500 whitespace-nowrap">{item.rental_count}</span>
+          </div>
+          <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-sky-500 to-blue-600"
+              style={{ width: `${Math.max((item.rental_count / maxRentals) * 100, 8)}%` }}
+            />
+          </div>
+          <div className="text-xs text-gray-400">{item.revenue.toLocaleString()} ₸</div>
+        </div>
+      ))}
     </div>
   );
 }

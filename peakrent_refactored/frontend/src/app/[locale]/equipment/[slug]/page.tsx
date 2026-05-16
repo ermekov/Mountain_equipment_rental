@@ -12,7 +12,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { equipmentAPI, bookingAPI, reviewAPI, recommendAPI } from "@/lib/api/client";
 import { cn, formatPrice, daysBetween } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores";
-import type { Locale, Equipment, Review } from "@/lib/types";
+import type { Locale, Equipment, Review, Booking } from "@/lib/types";
 
 export default function EquipmentPage({
   params,
@@ -30,6 +30,8 @@ export default function EquipmentPage({
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewEligibleBookingId, setReviewEligibleBookingId] = useState<number | null>(null);
+  const [reviewGateChecked, setReviewGateChecked] = useState(false);
 
   // Booking state
   const [start,      setStart]      = useState("");
@@ -61,6 +63,45 @@ export default function EquipmentPage({
     }).finally(() => setLoading(false));
   }, [params.slug, l, router]);
 
+  useEffect(() => {
+    if (!eq || !user) {
+      setReviewEligibleBookingId(null);
+      setReviewGateChecked(!user);
+      return;
+    }
+
+    let cancelled = false;
+    bookingAPI.list()
+      .then((res) => {
+        if (cancelled) return;
+
+        const userAlreadyReviewed = reviews.some((review) => review.user.id === user.id);
+        if (userAlreadyReviewed) {
+          setReviewEligibleBookingId(null);
+          setReviewGateChecked(true);
+          return;
+        }
+
+        const eligibleBooking = res.data.find((booking: Booking) =>
+          ["confirmed", "completed"].includes(booking.status) &&
+          booking.items.some((item) => item.equipment_id === eq.id)
+        );
+
+        setReviewEligibleBookingId(eligibleBooking?.id ?? null);
+        setReviewGateChecked(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setReviewEligibleBookingId(null);
+          setReviewGateChecked(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [eq, reviews, user]);
+
   const handleBook = useCallback(async () => {
     if (!eq) return;
     if (!start || !end) { toast.error("Выберите даты"); return; }
@@ -91,23 +132,36 @@ export default function EquipmentPage({
       return;
     }
 
+    if (!reviewEligibleBookingId) {
+      toast.error(
+        l === "ru"
+          ? "Отзыв могут оставить только клиенты, которые уже бронировали это снаряжение"
+          : l === "kk"
+          ? "Пікірді бұл жабдықты брондаған клиенттер ғана жаза алады"
+          : "Only customers who booked this equipment can leave a review"
+      );
+      return;
+    }
+
     setReviewSubmitting(true);
     try {
       const res = await reviewAPI.create({
         equipment_id: eq.id,
         rating: reviewRating,
         comment: reviewComment.trim(),
+        booking_id: reviewEligibleBookingId,
       });
       setReviews((current) => [res.data, ...current]);
       setReviewComment("");
       setReviewRating(5);
+      setReviewEligibleBookingId(null);
       toast.success(l === "ru" ? "Отзыв отправлен" : l === "kk" ? "Пікір жіберілді" : "Review submitted");
     } catch (e: any) {
       toast.error(e?.response?.data?.error ?? (l === "ru" ? "Не удалось отправить отзыв" : l === "kk" ? "Пікір жіберілмеді" : "Failed to submit review"));
     } finally {
       setReviewSubmitting(false);
     }
-  }, [eq, l, reviewComment, reviewRating, router, user]);
+  }, [eq, l, reviewComment, reviewEligibleBookingId, reviewRating, router, user]);
 
   if (loading) {
     return (
@@ -125,6 +179,17 @@ export default function EquipmentPage({
   const name = l === "kk" ? eq.name_kk : l === "en" ? eq.name_en : eq.name_ru;
   const desc = l === "kk" ? eq.description_kk : l === "en" ? eq.description_en : eq.description_ru;
   const catN = l === "kk" ? eq.category?.name_kk : l === "en" ? eq.category?.name_en : eq.category?.name_ru;
+  const userAlreadyReviewed = !!user && reviews.some((review) => review.user.id === user.id);
+  const canSubmitReview = !!user && !!reviewEligibleBookingId && !userAlreadyReviewed;
+  const reviewHelperText = !user
+    ? (l === "ru" ? "Чтобы написать отзыв, войдите в аккаунт" : l === "kk" ? "Пікір жазу үшін аккаунтқа кіріңіз" : "Sign in to leave a review")
+    : userAlreadyReviewed
+    ? (l === "ru" ? "Вы уже оставили отзыв на это снаряжение" : l === "kk" ? "Сіз бұл жабдыққа пікір қалдырдыңыз" : "You already reviewed this equipment")
+    : reviewEligibleBookingId
+    ? (l === "ru" ? "Отзыв доступен, потому что у вас был подтвержденный заказ" : l === "kk" ? "Пікір жазуға болады, себебі сізде расталған бронь бар" : "You can review this equipment because you booked it")
+    : reviewGateChecked
+    ? (l === "ru" ? "Отзывы могут оставлять только клиенты, которые бронировали это снаряжение" : l === "kk" ? "Пікірді бұл жабдықты брондаған клиенттер ғана жаза алады" : "Only customers who booked this equipment can leave a review")
+    : (l === "ru" ? "Проверяем доступность отзыва..." : l === "kk" ? "Пікірге рұқсат тексерілуде..." : "Checking review eligibility...");
 
   return (
     <>
@@ -299,10 +364,10 @@ export default function EquipmentPage({
                         <button
                           key={value}
                           type="button"
-                          onClick={() => user && setReviewRating(value)}
+                          onClick={() => canSubmitReview && setReviewRating(value)}
                           className={cn(
                             "transition-transform",
-                            user ? "hover:scale-110" : "cursor-not-allowed opacity-70",
+                            canSubmitReview ? "hover:scale-110" : "cursor-not-allowed opacity-70",
                           )}
                         >
                           <Star
@@ -325,7 +390,7 @@ export default function EquipmentPage({
                         ? "Не ұнағанын немесе нені жақсартуға болатынын жазыңыз"
                         : "Write what you liked or what could be improved"
                     }
-                    disabled={!user || reviewSubmitting}
+                    disabled={!canSubmitReview || reviewSubmitting}
                     rows={4}
                     className="input-base min-h-28 resize-y"
                   />
@@ -336,10 +401,10 @@ export default function EquipmentPage({
                     <button
                       type="button"
                       onClick={handleReviewSubmit}
-                      disabled={!user || reviewSubmitting || reviewComment.trim().length > 500}
+                      disabled={!canSubmitReview || reviewSubmitting || reviewComment.trim().length > 500}
                       className={cn(
                         "btn-primary !py-2.5 !px-5",
-                        (!user || reviewSubmitting || reviewComment.trim().length > 500) && "opacity-60 cursor-not-allowed",
+                        (!canSubmitReview || reviewSubmitting || reviewComment.trim().length > 500) && "opacity-60 cursor-not-allowed",
                       )}
                     >
                       {reviewSubmitting

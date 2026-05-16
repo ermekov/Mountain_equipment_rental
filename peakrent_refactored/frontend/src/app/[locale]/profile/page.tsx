@@ -11,6 +11,13 @@ import { bookingAPI } from "@/lib/api/client";
 import { Navbar } from "@/components/layout/navbar";
 import type { Locale, Booking } from "@/lib/types";
 
+type TimelineStep = {
+  key: string;
+  label: string;
+  active: boolean;
+  muted?: boolean;
+};
+
 export default function ProfilePage({ params }: { params: { locale: string } }) {
   const l      = params.locale as Locale;
   const router = useRouter();
@@ -53,6 +60,28 @@ export default function ProfilePage({ params }: { params: { locale: string } }) 
     pending:   { label: "Ожидает",      icon: <Clock className="w-3 h-3" />,         cls: "bg-amber-50 text-amber-700"  },
     cancelled: { label: "Отменено",     icon: <XCircle className="w-3 h-3" />,       cls: "bg-red-50 text-red-600"      },
     completed: { label: "Завершено",    icon: <CheckCircle2 className="w-3 h-3" />,  cls: "bg-slate-100 text-slate-500" },
+  };
+
+  const buildTimeline = (booking: Booking): TimelineStep[] => {
+    const labels = {
+      created: l === "ru" ? "Создано" : l === "kk" ? "Құрылды" : "Created",
+      confirmed: l === "ru" ? "Подтверждено" : l === "kk" ? "Расталды" : "Confirmed",
+      completed: l === "ru" ? "Завершено" : l === "kk" ? "Аяқталды" : "Completed",
+      cancelled: l === "ru" ? "Отменено" : l === "kk" ? "Тоқтатылды" : "Cancelled",
+    };
+
+    if (booking.status === "cancelled") {
+      return [
+        { key: "created", label: labels.created, active: true },
+        { key: "cancelled", label: labels.cancelled, active: true },
+      ];
+    }
+
+    return [
+      { key: "created", label: labels.created, active: true },
+      { key: "confirmed", label: labels.confirmed, active: ["confirmed", "completed"].includes(booking.status) },
+      { key: "completed", label: labels.completed, active: booking.status === "completed", muted: booking.status !== "completed" },
+    ];
   };
 
   return (
@@ -173,6 +202,37 @@ export default function ProfilePage({ params }: { params: { locale: string } }) 
                               {l === "ru" ? "Отменить" : l === "kk" ? "Тоқтату" : "Cancel"}
                             </button>
                           )}
+                        </div>
+                        <div className="mt-3">
+                          <div className="flex items-center gap-2">
+                            {buildTimeline(b).map((step, index, timeline) => (
+                              <div key={step.key} className="flex items-center gap-2 flex-1 min-w-0">
+                                <div
+                                  className={cn(
+                                    "w-2.5 h-2.5 rounded-full flex-shrink-0",
+                                    step.active ? "bg-ice" : "bg-slate-200",
+                                  )}
+                                />
+                                <span
+                                  className={cn(
+                                    "text-[11px] leading-none truncate",
+                                    step.active ? "text-navy font-semibold" : "text-slate-400",
+                                    step.muted && "text-slate-300",
+                                  )}
+                                >
+                                  {step.label}
+                                </span>
+                                {index < timeline.length - 1 && (
+                                  <div
+                                    className={cn(
+                                      "h-px flex-1 min-w-3",
+                                      step.active && timeline[index + 1]?.active ? "bg-ice/60" : "bg-slate-200",
+                                    )}
+                                  />
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0">

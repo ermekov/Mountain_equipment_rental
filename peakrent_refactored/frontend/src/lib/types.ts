@@ -1,6 +1,7 @@
 export type Locale = "ru" | "kk" | "en";
 export type ActivitySlug = "skiing" | "snowboard" | "hiking" | "camping" | "climbing" | "trekking";
 export type SizeType = "ski_length" | "boot_size" | "clothing" | "none";
+export type Gender = "male" | "female" | "unisex";
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
 export type PaymentMethod = "kaspi_qr" | "card" | "cash";
 
@@ -20,6 +21,7 @@ export interface Equipment {
   price_per_day: number; deposit: number; stock: number;
   image_url: string; images: string[]; tags: string[];
   sizes: EquipmentSize[]; size_type: SizeType;
+  gender: Gender;
   is_featured: boolean; avg_rating: number | null; review_count: number;
   category?: Category;
 }

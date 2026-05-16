@@ -28,6 +28,7 @@ interface Product {
   price_per_day: number;
   image_url: string;
   stock: number;
+  gender?: "male" | "female" | "unisex";
   is_active: boolean;
   is_featured: boolean;
 }
@@ -85,7 +86,7 @@ interface DailyRevenuePoint {
 // Пустая форма для добавления нового товара
 const EMPTY_FORM = {
   name: "", description: "", price: "", deposit: "", stock: "1", image_url: "", category_id: "", is_featured: false,
-  tags: "", sizes: "", size_type: "none", peak_months: "",
+  tags: "", sizes: "", size_type: "none", peak_months: "", gender: "unisex",
 };
 
 const MESSAGES = {
@@ -553,8 +554,8 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
   const [editId,   setEditId]   = useState<number | null>(null);
   const [editData, setEditData] = useState<{
     name: string; description: string; price: string;
-    stock: string; image_url: string; is_featured: boolean;
-  }>({ name: "", description: "", price: "", stock: "", image_url: "", is_featured: false });
+    stock: string; image_url: string; is_featured: boolean; gender: "male" | "female" | "unisex";
+  }>({ name: "", description: "", price: "", stock: "", image_url: "", is_featured: false, gender: "unisex" });
   const [saving, setSaving] = useState(false);
   const [uploadingEditImage, setUploadingEditImage] = useState(false);
 
@@ -722,6 +723,7 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
           sizes:       parsedSizes,
           size_type:   addForm.size_type,
           peak_months: parsedPeakMonths,
+          gender:      addForm.gender,
         }),
       });
       if (!res.ok) { alert((await res.json()).error || t.errors.generic); return; }
@@ -742,6 +744,7 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
       stock:       String(p.stock),
       image_url:   p.image_url,
       is_featured: p.is_featured,
+      gender:      p.gender || "unisex",
     });
   }
 
@@ -768,6 +771,7 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
           stock:       parseInt(editData.stock) || 0,
           image_url:   editData.image_url,
           is_featured: editData.is_featured,
+          gender:      editData.gender,
         }),
       });
       if (!res.ok) { alert((await res.json()).error || t.errors.generic); return; }
@@ -821,6 +825,18 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
   };
   const categoryLabel = (category: Category) =>
     l === "kk" ? category.name_kk : l === "en" ? category.name_en : category.name_ru;
+  const genderFieldLabel = l === "kk" ? "Кімге арналған" : l === "en" ? "For whom" : "Для кого";
+  const genderColumnLabel = l === "kk" ? "Жынысы" : l === "en" ? "Gender" : "Пол";
+  const genderOptions = [
+    { value: "unisex", label: l === "kk" ? "Унисекс" : l === "en" ? "Unisex" : "Унисекс" },
+    { value: "male", label: l === "kk" ? "Ерлерге" : l === "en" ? "Men" : "Мужское" },
+    { value: "female", label: l === "kk" ? "Әйелдерге" : l === "en" ? "Women" : "Женское" },
+  ] as const;
+  const genderBadge = (value?: "male" | "female" | "unisex") => {
+    if (value === "male") return { label: genderOptions[1].label, className: "bg-blue-100 text-blue-700" };
+    if (value === "female") return { label: genderOptions[2].label, className: "bg-pink-100 text-pink-700" };
+    return { label: genderOptions[0].label, className: "bg-slate-100 text-slate-600" };
+  };
   const splitCommaValues = (value: string) =>
     value.split(",").map((item) => item.trim()).filter(Boolean);
   const revenueTrendTitle =
@@ -944,6 +960,20 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
                         placeholder={t.products.placeholders.price} className={input} min="1" />
                     </Field>
 
+                    <Field label={genderFieldLabel}>
+                      <select
+                        value={addForm.gender}
+                        onChange={e => setAddForm({...addForm, gender: e.target.value})}
+                        className={input}
+                      >
+                        {genderOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
                     <Field label={t.products.fields.deposit}>
                       <input type="number" value={addForm.deposit}
                         onChange={e => setAddForm({...addForm, deposit: e.target.value})}
@@ -1064,6 +1094,7 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
                         <th className="px-3 py-3 text-left">{t.products.columns.description}</th>
                         <th className="px-3 py-3 text-left w-28">{t.products.columns.price}</th>
                         <th className="px-3 py-3 text-left w-24">{t.products.columns.stock}</th>
+                        <th className="px-3 py-3 text-left w-32">{genderColumnLabel}</th>
                         <th className="px-3 py-3 text-left w-20">{t.products.columns.featured}</th>
                         <th className="px-3 py-3 text-left w-36">{t.products.columns.actions}</th>
                       </tr>
@@ -1071,7 +1102,7 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
                     <tbody className="divide-y divide-gray-100">
                       {products.length === 0 && (
                         <tr>
-                          <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+                          <td colSpan={8} className="px-4 py-12 text-center text-gray-400">
                             {t.products.empty}
                           </td>
                         </tr>
@@ -1178,6 +1209,26 @@ export default function AdminPage({ params }: { params: { locale: string } }) {
                                   p.stock === 0 ? "text-red-500" :
                                   p.stock <= 2 ? "text-amber-600" : "text-gray-700"
                                 }`}>{p.stock} {t.products.pieces}</span>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-3">
+                              {isEditing ? (
+                                <select
+                                  value={editData.gender}
+                                  onChange={e => setEditData({...editData, gender: e.target.value as "male" | "female" | "unisex"})}
+                                  className={inputSm + " w-full"}
+                                >
+                                  {genderOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${genderBadge(p.gender).className}`}>
+                                  {genderBadge(p.gender).label}
+                                </span>
                               )}
                             </td>
 

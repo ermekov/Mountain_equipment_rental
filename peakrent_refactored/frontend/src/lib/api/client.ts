@@ -36,7 +36,7 @@ export const equipmentAPI = {
   list: (params?: {
     category?: string; search?: string; min_price?: number;
     max_price?: number; start_date?: string; end_date?: string;
-    limit?: number; sort?: string;
+    limit?: number; sort?: string; gender?: string;
   }) => apiClient.get<Equipment[]>("/equipment", { params }),
 
   featured:     (limit = 6) => apiClient.get<Equipment[]>("/equipment/featured", { params: { limit } }),
@@ -61,6 +61,7 @@ export const recommendAPI = {
   get: (data: {
     activity?: string; city?: string; level?: string;
     start_date?: string; end_date?: string; limit?: number;
+    budget_max?: number; locale?: string; temperature?: number; weather?: string;
   }) => apiClient.post<RecommendationResponse>("/recommendations", data),
 
   related: (equipment_id: number, limit = 3) =>
@@ -71,10 +72,10 @@ export const recommendAPI = {
 export const aiAPI = {
   chat: (data: {
     messages: Array<{ role: "user" | "assistant"; content: string }>;
-    city?: string;
+    city?: string; locale?: string;
   }) => apiClient.post<{ reply: string }>("/ai/chat", data),
 
-  suggest: (data: { activity: string; city?: string; temperature?: number }) =>
+  suggest: (data: { activity: string; city?: string; temperature?: number; locale?: string }) =>
     apiClient.post<{ suggestion: string }>("/ai/suggest", data),
 };
 

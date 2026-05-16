@@ -90,6 +90,14 @@ def get_equipment_list():
     if max_price is not None:
         query = query.filter(Equipment.price_per_day <= max_price)
 
+    gender = (request.args.get("gender") or "").strip().lower()
+    if gender == "male":
+        query = query.filter(Equipment.gender.in_(["male", "unisex"]))
+    elif gender == "female":
+        query = query.filter(Equipment.gender.in_(["female", "unisex"]))
+    elif gender == "unisex":
+        query = query.filter(Equipment.gender == "unisex")
+
     # Сортировка
     sort = request.args.get("sort", "default")
     if sort == "price_asc":

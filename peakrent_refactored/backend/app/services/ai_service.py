@@ -1,143 +1,107 @@
-"""
-app/services/ai_service.py — AI сервис рекомендаций
+"""AI recommendation and chat service for PeakRent."""
 
-Двухуровневая архитектура AI:
-
-    Уровень 1 (L0): Правиловый движок (Rule-Based Engine)
-        - Скорость: < 50ms
-        - Не требует внешних API
-        - Формула скоринга:
-            score = tag_overlap * 0.60   ← совпадение тегов активности
-                  + popularity  * 0.25   ← частота бронирований за 30 дней
-                  + seasonal    * 0.10   ← пиковый сезон для снаряжения
-                  + featured    * 0.05   ← бонус за рекомендованность
-                  - history_pen          ← штраф за недавно арендованное
-
-    Уровень 2 (L1): OpenAI GPT-4o-mini
-        - Скорость: 1–3 секунды
-        - Обогащает L0 результаты персональными объяснениями
-        - Используется ТОЛЬКО для текста, не для отбора снаряжения
-        - Fallback: если OpenAI недоступен → используем L0 объяснения
-
-Такая архитектура обеспечивает:
-    ✅ Быстрый ответ (L0 всегда работает)
-    ✅ Персональные объяснения (L1 когда доступен)
-    ✅ Отказоустойчивость (работает без интернета)
-"""
+from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+import re
+from datetime import date, datetime, timedelta
 
-from sqlalchemy import func
 from flask import current_app
+from sqlalchemy import func
 
 from ..extensions import db
-from ..models import Equipment, Booking, BookingItem
+from ..models import Booking, BookingItem, Equipment
 
-# Маппинг активностей → теги снаряжения
-# Определяет какое снаряжение показывать для каждой активности
 ACTIVITY_TAGS = {
-    "skiing":    ["skiing", "alpine", "winter", "helmet", "jacket", "thermal", "goggles"],
+    "skiing": ["skiing", "alpine", "winter", "helmet", "jacket", "thermal", "goggles"],
     "snowboard": ["snowboard", "winter", "helmet", "jacket", "thermal", "boots"],
-    "hiking":    ["hiking", "trekking", "boots", "backpack", "poles", "waterproof"],
-    "camping":   ["camping", "tent", "sleeping bag", "stove", "mat"],
-    "climbing":  ["climbing", "harness", "rope", "helmet", "carabiner", "safety"],
-    "trekking":  ["trekking", "hiking", "boots", "backpack", "poles", "multi-day"],
+    "hiking": ["hiking", "trekking", "boots", "backpack", "poles", "waterproof"],
+    "camping": ["camping", "tent", "sleeping bag", "stove", "mat"],
+    "climbing": ["climbing", "harness", "rope", "helmet", "carabiner", "safety"],
+    "trekking": ["trekking", "hiking", "boots", "backpack", "poles", "multi-day"],
+}
+
+SAFETY_TAGS = {
+    "skiing": ["helmet", "goggles", "thermal"],
+    "snowboard": ["helmet", "thermal", "boots"],
+    "hiking": ["boots", "waterproof", "poles"],
+    "camping": ["tent", "sleeping bag"],
+    "climbing": ["helmet", "harness", "rope", "safety"],
+    "trekking": ["boots", "poles", "waterproof"],
+}
+
+LANGUAGE_NAMES = {"ru": "Russian", "kk": "Kazakh", "en": "English"}
+
+FALLBACK_CHAT = {
+    "ru": "Я помогу подобрать снаряжение из каталога PeakRent. Напишите активность, даты, уровень и бюджет.",
+    "kk": "Мен PeakRent каталогынан жабдық таңдауға көмектесемін. Белсенділік, күндер, деңгей және бюджет жазыңыз.",
+    "en": "I can help you pick gear from the PeakRent catalog. Tell me the activity, dates, level, and budget.",
+}
+
+SUGGEST_FALLBACKS = {
+    "ru": {
+        "skiing": "Для лыж советую комплект лыж, шлем и очки. Если холоднее -5°C, добавьте тёплый костюм.",
+        "snowboard": "Для сноуборда возьмите доску с ботинками, шлем и тёплую куртку.",
+        "hiking": "Для хайкинга подойдут треккинговые ботинки, рюкзак и палки.",
+        "camping": "Для кемпинга начните с палатки, спальника и горелки.",
+        "climbing": "Для альпинизма критично взять страховочную систему, верёвку и шлем.",
+        "trekking": "Для треккинга лучше выбрать ботинки, рюкзак и палки.",
+    },
+    "kk": {
+        "skiing": "Шаңғыға шаңғы жиынтығы, дулыға және көзілдірік керек. -5°C төмен болса жылы костюм қосыңыз.",
+        "snowboard": "Сноубордқа тақта, ботинка, дулыға және жылы күрте керек.",
+        "hiking": "Хайкингке треккинг ботинкасы, рюкзак және таяқша қолайлы.",
+        "camping": "Кемпингке шатыр, ұйқы қапы және жанарғыдан бастаңыз.",
+        "climbing": "Альпинизмге сақтандыру жүйесі, арқан және дулыға міндетті.",
+        "trekking": "Треккингке ботинка, рюкзак және таяқша таңдаған дұрыс.",
+    },
+    "en": {
+        "skiing": "For skiing, start with a ski set, helmet, and goggles. Add warm outerwear below -5°C.",
+        "snowboard": "For snowboarding, take a board set, helmet, and insulated jacket.",
+        "hiking": "For hiking, trekking boots, a backpack, and poles are a solid base.",
+        "camping": "For camping, begin with a tent, sleeping bag, and stove.",
+        "climbing": "For climbing, a harness, rope, and helmet are essential.",
+        "trekking": "For trekking, pick boots, a backpack, and poles.",
+    },
 }
 
 
 class AIService:
-    """
-    Сервис AI-рекомендаций.
-
-    Содержит всю бизнес-логику для подбора снаряжения:
-        - Rule-based скоринг (L0)
-        - Обогащение через OpenAI (L1)
-        - AI чат-консультант
-    """
-
     @staticmethod
     def get_recommendations(
-        activity: str = None,
-        temperature: float = None,
-        weather: str = None,
-        user_id: int = None,
+        activity: str | None = None,
+        temperature: float | None = None,
+        weather: str | None = None,
+        user_id: int | None = None,
+        city: str | None = None,
+        level: str | None = None,
+        budget_max: int | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        locale: str = "ru",
         limit: int = 6,
     ) -> list:
-        """
-        Возвращает персональные рекомендации снаряжения.
-
-        Алгоритм:
-            1. Строим множество целевых тегов из активности и погоды
-            2. Вычисляем скор для каждой единицы снаряжения
-            3. Сортируем по убыванию скора
-            4. Возвращаем топ-N результатов
-
-        Args:
-            activity:    тип активности ("skiing", "hiking", etc.)
-            temperature: температура воздуха в °C
-            weather:     описание погоды ("snow", "rain", etc.)
-            user_id:     ID пользователя (для исключения недавно арендованного)
-            limit:       максимальное количество результатов
-
-        Returns:
-            list: список словарей с полями снаряжения + recommendation_reason + score
-        """
         all_equipment = Equipment.query.filter_by(is_active=True).all()
         if not all_equipment:
             return []
 
-        # ── Шаг 1: Формируем целевое множество тегов ─────────────────────────
-        target_tags = set()
-        context_parts = []  # Для генерации объяснений
+        target_tags = AIService._build_target_tags(activity, temperature, weather, level)
+        context_label = AIService._build_context_label(activity, city, weather, temperature, locale)
 
-        if activity:
-            mapped_tags = ACTIVITY_TAGS.get(activity.lower(), [])
-            target_tags.update(mapped_tags)
-            context_parts.append(activity)
-
-        # Корректируем теги на основе температуры
-        if temperature is not None:
-            if temperature < 5:
-                target_tags.update(["thermal", "winter", "jacket"])
-                context_parts.append(f"{temperature:.0f}°C")
-            elif temperature < 15:
-                target_tags.update(["hiking", "waterproof"])
-
-        # Корректируем теги на основе погодных условий
-        if weather:
-            w = weather.lower()
-            if "snow" in w:
-                target_tags.update(["skiing", "snowboard", "thermal"])
-            elif "rain" in w:
-                target_tags.update(["waterproof", "tent", "jacket"])
-
-        base_context = " · ".join(context_parts) if context_parts else ""
-
-        # ── Шаг 2: Получаем данные популярности (за последние 30 дней) ───────
         cutoff = datetime.utcnow() - timedelta(days=30)
         popularity_map = dict(
-            db.session.query(
-                BookingItem.equipment_id,
-                func.sum(BookingItem.quantity)
-            )
+            db.session.query(BookingItem.equipment_id, func.sum(BookingItem.quantity))
             .join(Booking)
-            .filter(
-                Booking.created_at >= cutoff,
-                Booking.status != "cancelled"
-            )
+            .filter(Booking.created_at >= cutoff, Booking.status != "cancelled")
             .group_by(BookingItem.equipment_id)
             .all()
         )
         max_popularity = max(popularity_map.values(), default=1) or 1
 
-        # ── Шаг 3: Определяем что пользователь недавно арендовал ─────────────
-        current_month = datetime.utcnow().month
         recently_rented = set()
         if user_id:
             recent_rows = (
-                BookingItem.query
-                .join(Booking)
+                BookingItem.query.join(Booking)
                 .filter(
                     Booking.user_id == user_id,
                     Booking.created_at >= datetime.utcnow() - timedelta(days=14),
@@ -147,231 +111,316 @@ class AIService:
             )
             recently_rented = {row[0] for row in recent_rows}
 
-        # ── Шаг 4: Вычисляем скор для каждой единицы снаряжения ──────────────
+        current_month = datetime.utcnow().month
         scored_items = []
 
         for item in all_equipment:
-            item_tags = set(t.strip().lower() for t in json.loads(item.tags or "[]"))
+            available_units = item.available_stock(start_date, end_date) if start_date and end_date else item.stock
+            if available_units <= 0:
+                continue
 
-            # Компонента 1: Пересечение тегов (60% веса)
+            item_tags = set(tag.strip().lower() for tag in json.loads(item.tags or "[]"))
+
             if target_tags:
                 tag_overlap = len(item_tags & target_tags) / max(len(target_tags), 1)
             else:
-                tag_overlap = 0.5  # Без активности — равновероятно
+                tag_overlap = 0.35
 
-            # Компонента 2: Популярность (25% веса)
             popularity_score = popularity_map.get(item.id, 0) / max_popularity
-
-            # Компонента 3: Сезонность (10% веса)
-            peak_months = json.loads(item.peak_months or "[]")
-            seasonal_bonus = 0.15 if current_month in peak_months else 0.0
-
-            # Компонента 4: Рекомендованность (5% веса)
+            seasonal_bonus = 0.15 if current_month in json.loads(item.peak_months or "[]") else 0.0
             featured_bonus = 0.05 if item.is_featured else 0.0
+            history_penalty = 0.25 if item.id in recently_rented else 0.0
+            stock_bonus = min(available_units / max(item.stock, 1), 1.0) * 0.08
+            safety_bonus = 0.08 if activity and AIService._is_safety_item(activity, item_tags) else 0.0
+            budget_penalty = 0.0
+            if budget_max and item.price_per_day > budget_max:
+                budget_penalty = min((item.price_per_day - budget_max) / max(budget_max, 1), 1.0) * 0.20
 
-            # Штраф за историю аренды
-            history_penalty = 0.30 if item.id in recently_rented else 0.0
-
-            # Итоговый скор
             score = (
-                tag_overlap      * 0.60
-                + popularity_score * 0.25
-                + seasonal_bonus   * 0.10
-                + featured_bonus   * 0.05
+                tag_overlap * 0.52
+                + popularity_score * 0.18
+                + seasonal_bonus * 0.08
+                + featured_bonus * 0.04
+                + stock_bonus
+                + safety_bonus
                 - history_penalty
+                - budget_penalty
             )
 
-            # Фильтруем нерелевантные результаты
-            if score <= 0.02:
+            if score <= 0.03:
                 continue
 
-            # Генерируем базовое объяснение
-            if tag_overlap > 0.4:
-                reason = f"Отлично подходит для {base_context}" if base_context else "Популярный выбор"
-            elif tag_overlap > 0.15:
-                reason = f"Хорошо подойдёт для {base_context}" if base_context else "Рекомендуем"
-            else:
-                reason = "Популярно среди арендаторов"
-
-            result = item.to_dict()
-            result["recommendation_reason"] = reason
+            result = item.to_dict(start_date, end_date)
             result["score"] = round(score, 3)
+            result["recommendation_reason"] = AIService._fallback_reason(
+                item=item,
+                item_tags=item_tags,
+                available_units=available_units,
+                context_label=context_label,
+                activity=activity,
+                locale=locale,
+            )
             scored_items.append(result)
 
-        # Сортируем по убыванию скора
-        scored_items.sort(key=lambda x: x["score"], reverse=True)
+        scored_items.sort(key=lambda entry: entry["score"], reverse=True)
         return scored_items[:limit]
 
     @staticmethod
     def enrich_with_openai(
         items: list,
-        activity: str,
-        temperature: float,
-        weather: str,
-        city: str,
+        activity: str | None,
+        temperature: float | None,
+        weather: str | None,
+        city: str | None,
+        locale: str = "ru",
     ) -> list:
-        """
-        Обогащает рекомендации персональными объяснениями через GPT-4o-mini.
-
-        Отправляет список снаряжения в OpenAI и просит написать
-        персонализированное объяснение для каждой позиции.
-
-        Args:
-            items:       список рекомендаций от rule-based движка
-            activity:    активность пользователя
-            temperature: температура
-            weather:     погода
-            city:        город
-
-        Returns:
-            list: обновлённый список с улучшенными recommendation_reason
-        """
         client = AIService._get_openai_client()
         if not client or not items:
-            return items  # Fallback: возвращаем L0 результаты
+            return items
 
-        # Составляем краткое описание снаряжения для запроса
-        items_summary = [
+        payload = [
             {
-                "name": item.get("name_ru", ""),
-                "tags": item.get("tags", [])[:3],
+                "name": item.get("name_ru"),
+                "price_per_day": item.get("price_per_day"),
+                "stock": item.get("stock"),
+                "tags": item.get("tags", [])[:4],
             }
             for item in items[:6]
         ]
 
         prompt = (
-            f"Ты консультант по аренде горного снаряжения PeakRent.kz в Алматы.\n"
-            f"Активность: {activity or 'горный отдых'}. "
-            f"Погода в {city or 'Алматы'}: "
-            f"{f'{temperature:.0f}°C' if temperature is not None else 'неизвестно'}, "
-            f"{weather or ''}.\n"
-            f"Для каждой позиции напиши объяснение (1 предложение, до 90 символов) ПОЧЕМУ она нужна.\n"
-            f"По-русски, конкретно. Снаряжение:\n{json.dumps(items_summary, ensure_ascii=False)}\n"
-            f"Ответь ТОЛЬКО JSON-массивом строк (reasons). Без других слов."
+            "You are a rental equipment advisor for PeakRent.kz.\n"
+            f"Reply in {LANGUAGE_NAMES.get(locale, 'Russian')}.\n"
+            "Use only the provided catalog items. Do not invent unavailable products.\n"
+            "For each item write exactly one short sentence with:\n"
+            "1) why it fits today's conditions,\n"
+            "2) one safety or comfort hint,\n"
+            "3) one next-step action.\n"
+            "Keep every sentence under 130 characters.\n"
+            f"Context: activity={activity or 'not specified'}, city={city or 'Almaty'}, weather={weather or 'unknown'}, temperature={temperature if temperature is not None else 'unknown'}.\n"
+            f"Items: {json.dumps(payload, ensure_ascii=False)}\n"
+            'Return JSON array only, like ["...", "..."].'
         )
 
         try:
             response = client.chat.completions.create(
                 model=current_app.config["OPENAI_MODEL"],
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=400,
-                temperature=0.7,
-                timeout=8,
+                max_tokens=500,
+                temperature=0.45,
+                timeout=10,
             )
-            raw = response.choices[0].message.content.strip()
-            raw = raw.replace("```json", "").replace("```", "").strip()
+            raw = response.choices[0].message.content.strip().replace("```json", "").replace("```", "").strip()
             reasons = json.loads(raw)
-
             if isinstance(reasons, list):
-                for i, item in enumerate(items):
-                    if i < len(reasons):
-                        item["recommendation_reason"] = reasons[i]
-
-        except Exception as e:
-            current_app.logger.warning(f"OpenAI enrich failed: {e}")
-            # Fallback: используем L0 объяснения (уже заполнены)
+                for index, item in enumerate(items):
+                    if index < len(reasons) and isinstance(reasons[index], str):
+                        item["recommendation_reason"] = reasons[index]
+        except Exception as exc:
+            current_app.logger.warning(f"OpenAI enrich failed: {exc}")
 
         return items
 
     @staticmethod
-    def chat(messages: list, city: str = "Алматы") -> str:
-        """
-        AI чат-консультант по снаряжению.
-
-        Использует контекст каталога снаряжения для ответов.
-        Если OpenAI недоступен — возвращает приветственное сообщение.
-
-        Args:
-            messages: история сообщений [{"role": "user", "content": "..."}]
-            city:     город пользователя
-
-        Returns:
-            str: ответ AI-консультанта
-        """
+    def chat(messages: list, city: str = "Алматы", locale: str = "ru") -> str:
         client = AIService._get_openai_client()
         if not client:
-            return "Привет! Я консультант PeakRent.kz. Расскажите о вашей активности — подберу снаряжение!"
+            return FALLBACK_CHAT.get(locale, FALLBACK_CHAT["ru"])
 
-        # Получаем краткий каталог для контекста
-        catalog = [
-            {
-                "name":  eq.name_ru,
-                "price": eq.price_per_day,
-                "tags":  json.loads(eq.tags or "[]")[:3],
-            }
-            for eq in Equipment.query.filter_by(is_active=True).limit(20).all()
-        ]
+        recent_messages = messages[-10:]
+        profile = AIService._extract_chat_context(recent_messages)
+        catalog_context = AIService._catalog_context(city)
 
         system_prompt = (
-            f"Ты AI-консультант по аренде горного снаряжения PeakRent.kz в Алматы. "
-            f"Помогаешь с выбором снаряжения: лыжи, сноуборд, хайкинг, кемпинг, альпинизм. "
-            f"Отвечай по-русски кратко (до 150 слов). "
-            f"Курорты: Шымбулак, Ой-Қарағай. Оплата: Kaspi QR. "
-            f"Каталог: {json.dumps(catalog, ensure_ascii=False)}"
+            "You are PeakRent.kz AI rental advisor.\n"
+            f"Always reply in {LANGUAGE_NAMES.get(locale, 'Russian')}.\n"
+            "You must only recommend gear that exists in the provided catalog context.\n"
+            "If the user has not shared enough details, ask concise follow-up questions about:\n"
+            "- activity\n- skill level\n- rental dates\n- budget\n"
+            "When enough details exist:\n"
+            "- recommend real catalog items only\n"
+            "- prefer currently available items\n"
+            "- include one safety tip\n"
+            "- include one concrete next action (open catalog, book, choose dates)\n"
+            "- do not invent inventory, prices, or services\n"
+            "- be concise: 3-5 short sentences\n"
+            f"Known user context: {json.dumps(profile, ensure_ascii=False)}\n"
+            f"Catalog context: {json.dumps(catalog_context, ensure_ascii=False)}"
         )
 
-        return AIService._openai_chat(messages, system_prompt)
+        return AIService._openai_chat(recent_messages, system_prompt) or FALLBACK_CHAT.get(locale, FALLBACK_CHAT["ru"])
 
     @staticmethod
-    def suggest(activity: str, city: str = "Алматы", temperature: float = None) -> str:
-        """
-        Быстрый AI-совет по снаряжению для конкретной активности.
-
-        Args:
-            activity:    активность ("skiing", "hiking", etc.)
-            city:        город
-            temperature: температура
-
-        Returns:
-            str: короткий совет по снаряжению
-        """
+    def suggest(
+        activity: str,
+        city: str = "Алматы",
+        temperature: float | None = None,
+        locale: str = "ru",
+    ) -> str:
         prompt = (
-            f"Дай краткий совет (3 предложения) по снаряжению для {activity} в {city}. "
-            f"{'Температура: ' + str(temperature) + '°C.' if temperature else ''} "
-            f"Упомяни 2–3 конкретных позиции. По-русски."
+            f"Reply in {LANGUAGE_NAMES.get(locale, 'Russian')}.\n"
+            f"Give a short 3-sentence rental tip for {activity} in {city}. "
+            f"{'Temperature is ' + str(temperature) + 'C. ' if temperature is not None else ''}"
+            "Mention only realistic gear categories, one safety tip, and one next step."
+        )
+        result = AIService._openai_chat([{"role": "user", "content": prompt}])
+        if result:
+            return result
+        return SUGGEST_FALLBACKS.get(locale, SUGGEST_FALLBACKS["ru"]).get(
+            activity, FALLBACK_CHAT.get(locale, FALLBACK_CHAT["ru"])
         )
 
-        result = AIService._openai_chat(
-            [{"role": "user", "content": prompt}]
-        )
+    @staticmethod
+    def _build_target_tags(
+        activity: str | None,
+        temperature: float | None,
+        weather: str | None,
+        level: str | None,
+    ) -> set:
+        tags = set()
+        if activity:
+            tags.update(ACTIVITY_TAGS.get(activity.lower(), []))
 
-        if not result:
-            # Заготовленные fallback-ответы
-            fallbacks = {
-                "skiing":    "Для лыж возьмите: горнолыжный комплект, шлем и очки. При морозе ниже -5°C добавьте термобельё.",
-                "snowboard": "Для сноуборда: доска с ботинками, шлем и тёплые перчатки.",
-                "hiking":    "Для хайкинга: треккинговые ботинки, рюкзак 30–40L и треккинговые палки.",
-                "camping":   "Для кемпинга: 4-сезонная палатка, спальник до -10°C и газовая горелка.",
-                "climbing":  "Для альпинизма: страховочная система, верёвка 60м и шлем.",
-                "trekking":  "Для треккинга: рюкзак 60L, водонепроницаемые ботинки и треккинговые палки.",
-            }
-            return fallbacks.get(activity, "Выберите активность — подберём снаряжение!")
+        if temperature is not None:
+            if temperature < 0:
+                tags.update(["thermal", "winter", "jacket"])
+            elif temperature < 10:
+                tags.update(["waterproof", "jacket"])
 
+        if weather:
+            lowered = weather.lower()
+            if "snow" in lowered:
+                tags.update(["winter", "thermal", "goggles"])
+            elif "rain" in lowered:
+                tags.update(["waterproof", "tent", "jacket"])
+
+        if level == "beginner":
+            tags.update(["beginner-friendly", "safety"])
+        elif level == "advanced":
+            tags.update(["performance", "expedition"])
+
+        return tags
+
+    @staticmethod
+    def _build_context_label(
+        activity: str | None,
+        city: str | None,
+        weather: str | None,
+        temperature: float | None,
+        locale: str,
+    ) -> str:
+        parts = []
+        if activity:
+            parts.append(activity)
+        if city:
+            parts.append(city)
+        if weather:
+            parts.append(weather)
+        if temperature is not None:
+            if locale == "kk":
+                parts.append(f"{temperature:.0f}°C")
+            else:
+                parts.append(f"{temperature:.0f}°C")
+        return " · ".join(parts)
+
+    @staticmethod
+    def _fallback_reason(item: Equipment, item_tags: set, available_units: int, context_label: str, activity: str | None, locale: str) -> str:
+        safety_match = AIService._is_safety_item(activity, item_tags) if activity else False
+        if locale == "kk":
+            prefix = f"{context_label} үшін жақсы сәйкеседі." if context_label else "Бұл позиция сұранысқа жақсы сәйкеседі."
+            safety = " Қауіпсіздік үшін маңызды." if safety_match else ""
+            action = f" Қазір {available_units} дана бос, күнін таңдап брондаңыз."
+            return f"{prefix}{safety}{action}"
+        if locale == "en":
+            prefix = f"Good fit for {context_label}." if context_label else "Good match for your request."
+            safety = " Useful for safety." if safety_match else ""
+            action = f" {available_units} unit(s) are available now, so you can book dates next."
+            return f"{prefix}{safety}{action}"
+        prefix = f"Хорошо подходит для {context_label}." if context_label else "Хорошо подходит под ваш запрос."
+        safety = " Важный элемент для безопасности." if safety_match else ""
+        action = f" Сейчас доступно {available_units} шт., можно сразу выбрать даты."
+        return f"{prefix}{safety}{action}"
+
+    @staticmethod
+    def _is_safety_item(activity: str | None, item_tags: set) -> bool:
+        if not activity:
+            return False
+        return any(tag in item_tags for tag in SAFETY_TAGS.get(activity.lower(), []))
+
+    @staticmethod
+    def _extract_chat_context(messages: list) -> dict:
+        joined = " ".join(message.get("content", "") for message in messages if message.get("role") == "user").lower()
+
+        activity = None
+        for key in ACTIVITY_TAGS:
+            if key in joined:
+                activity = key
+                break
+        if "лыж" in joined or "шаңғы" in joined:
+            activity = activity or "skiing"
+        if "сноуб" in joined:
+            activity = activity or "snowboard"
+        if "хайк" in joined or "hiking" in joined:
+            activity = activity or "hiking"
+        if "кемп" in joined or "camp" in joined:
+            activity = activity or "camping"
+        if "альп" in joined or "climb" in joined:
+            activity = activity or "climbing"
+        if "трек" in joined:
+            activity = activity or "trekking"
+
+        level = None
+        if any(word in joined for word in ["beginner", "нович", "бастау"]):
+            level = "beginner"
+        elif any(word in joined for word in ["advanced", "опыт", "жетік", "pro"]):
+            level = "advanced"
+
+        budget_match = re.search(r"(\d{4,6})", joined)
+        budget = int(budget_match.group(1)) if budget_match else None
+
+        return {
+            "activity": activity,
+            "level": level,
+            "budget": budget,
+            "mentions_dates": any(token in joined for token in ["день", "дня", "күн", "day", "date"]),
+        }
+
+    @staticmethod
+    def _catalog_context(city: str) -> list:
+        items = Equipment.query.filter_by(is_active=True).limit(20).all()
+        result = []
+        for item in items:
+            result.append(
+                {
+                    "name": item.name_ru,
+                    "slug": item.slug,
+                    "price_per_day": item.price_per_day,
+                    "stock": item.stock,
+                    "tags": json.loads(item.tags or "[]")[:4],
+                    "city_context": city,
+                }
+            )
         return result
-
-    # ── Приватные вспомогательные методы ─────────────────────────────────────
 
     @staticmethod
     def _get_openai_client():
-        """Возвращает OpenAI клиент или None если не настроен."""
         try:
             from openai import OpenAI
+
             api_key = current_app.config.get("OPENAI_API_KEY", "")
             if not api_key:
                 return None
             return OpenAI(api_key=api_key)
         except ImportError:
-            current_app.logger.warning("openai пакет не установлен")
+            current_app.logger.warning("openai package is not installed")
             return None
 
     @staticmethod
-    def _openai_chat(messages: list, system: str = None) -> str:
-        """Отправляет запрос в OpenAI Chat API."""
+    def _openai_chat(messages: list, system: str | None = None) -> str | None:
         client = AIService._get_openai_client()
         if not client:
             return None
 
-        # Формируем список сообщений с системным промптом
         full_messages = []
         if system:
             full_messages.append({"role": "system", "content": system})
@@ -381,11 +430,11 @@ class AIService:
             response = client.chat.completions.create(
                 model=current_app.config["OPENAI_MODEL"],
                 messages=full_messages,
-                max_tokens=600,
-                temperature=0.7,
+                max_tokens=700,
+                temperature=0.55,
                 timeout=15,
             )
             return response.choices[0].message.content
-        except Exception as e:
-            current_app.logger.warning(f"OpenAI chat failed: {e}")
+        except Exception as exc:
+            current_app.logger.warning(f"OpenAI chat failed: {exc}")
             return None

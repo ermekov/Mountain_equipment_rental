@@ -103,6 +103,7 @@ class Equipment(db.Model):
 
     # Тип размерной сетки
     size_type      = db.Column(db.String(30), default="none")
+    gender         = db.Column(db.String(10), nullable=True, default="unisex")
 
     # Статусы
     is_active      = db.Column(db.Boolean, default=True)   # Доступно для аренды
@@ -185,6 +186,7 @@ class Equipment(db.Model):
             "sizes":           json.loads(self.sizes   or "[]"),
             "tags":            json.loads(self.tags    or "[]"),
             "size_type":       self.size_type,
+            "gender":          self.gender or "unisex",
             "is_featured":     self.is_featured,
             "avg_rating":      self.avg_rating,
             "review_count":    self.review_count,

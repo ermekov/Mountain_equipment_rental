@@ -1,306 +1,140 @@
-"""
-app/services/chat_service.py — AI Чат-бот сервисі
+"""Site assistant chat service."""
 
-Архитектура:
-    1. SITE_KNOWLEDGE — сайт туралы FAQ (компания, бет, ережелер)
-    2. build_system_prompt() — FAQ + нұсқаулар → GPT-ға system prompt
-    3. ChatService.reply() — тарихпен + контекстпен жауап береді
-
-"Оқыту" механизмі:
-    Бот SITE_KNOWLEDGE сөздігінде сақталған мәліметтерді пайдаланады.
-    Жаңа ақпарат қосу үшін — тиісті бөлімге жол қосу жеткілікті.
-
-Болашақта жақсарту мүмкіндіктері (дипломда айтуға):
-    - SITE_KNOWLEDGE-ті БД-ға жылжыту (кесте: bot_knowledge)
-    - Жиі сұрақтарды автоматты жинау
-    - Персонализация: user_id бойынша тарихты сақтау Redis-те
-    - RAG (Retrieval Augmented Generation) — PDF/DOC жүктеу
-"""
-
-import json
 from flask import current_app
 
-# ─────────────────────────────────────────────────────────────────
-# САЙТ ТУРАЛЫ БІЛІМ БАЗАСЫ (Knowledge Base)
-#
-# Мұны өзгерту арқылы боттың білімін жаңартуға болады.
-# Жаңа тақырып қосу → жаңа кілт + тізім.
-# ─────────────────────────────────────────────────────────────────
-
 SITE_KNOWLEDGE = {
-
     "company": """
-    О компании:
-    - Название: PeakRent.kz
-    - Профиль: онлайн-аренда горного снаряжения в Алматы
-    - Адрес: г. Алматы, ул. Достык 123
-    - График работы: ежедневно с 08:00 до 22:00
-    - Телефон: +7 (707) 123-45-67
-    - Email: hello@peakrent.kz
-    - Зона обслуживания: курорты Шымбулак, Ой-Карагай, Ак-Булак
-    """,
+- PeakRent.kz - rental platform for mountain gear in Almaty
+- Address: Dostyk 123, Almaty
+- Hours: daily from 08:00 to 22:00
+- Phone: +7 (707) 123-45-67
+- Email: hello@peakrent.kz
+- Main resorts: Shymbulak, Oi-Qaragai, Ak-Bulak
+""",
+    "catalog": """
+- /catalog - browse all gear and use filters
+- /equipment/[slug] - product details and booking
+- /ai - AI recommendations page
+- /checkout - payment and booking checkout
+- /profile - booking history and statuses
+""",
+    "payments": """
+- Payment methods: Kaspi QR, card, cash
+- Deposit depends on equipment and is returned after safe return
+- Booking can be cancelled while pending or confirmed
+""",
+    "rules": """
+- Minimum rental period: 1 day
+- Gear should be returned clean and undamaged
+- Helmet is strongly recommended for skiing and snowboarding
+- For climbing safety gear is mandatory
+""",
+}
 
-    "equipment_categories": """
-    Категории снаряжения:
-    - ⛷️ Горные лыжи (Skiing): комплект лыж, шлем, очки, костюм
-    - 🏂 Сноуборд (Snowboard): доска + крепления + ботинки
-    - 🥾 Хайкинг (Hiking): треккинговые ботинки, рюкзак 60L, палки
-    - ⛺ Кемпинг (Camping): 4-сезонная палатка, спальный мешок -10°C, горелка
-    - 🧗 Альпинизм (Climbing): страховочная система, верёвка 60м, каска
-    - 🗺️ Треккинг (Trekking): рюкзак, ботинки, треккинговые палки
-    """,
+QUICK_REPLIES = {
+    "ru": [
+        "Что можно арендовать?",
+        "Как забронировать?",
+        "Какие есть цены?",
+        "Как оплатить?",
+        "Где забрать заказ?",
+    ],
+    "kk": [
+        "Не жалдауға болады?",
+        "Қалай брондауға болады?",
+        "Бағалар қандай?",
+        "Қалай төлеуге болады?",
+        "Қайдан алып кетемін?",
+    ],
+    "en": [
+        "What can I rent?",
+        "How do I book?",
+        "What are the prices?",
+        "How can I pay?",
+        "Where do I pick up?",
+    ],
+}
 
-    "popular_equipment": """
-    Популярное снаряжение и цены:
-    - Комплект лыж (взрослый): 22 000 ₸/день — размер 150-180 см
-    - Комплект сноуборда: 25 000 ₸/день — размер 150-162 см
-    - Шлем для лыж: 5 000 ₸/день — размеры S/M/L/XL
-    - Треккинговые ботинки: 7 000 ₸/день — размеры 36-46
-    - Рюкзак 60L: 6 000 ₸/день
-    - 4-сезонная палатка (2-местная): 12 000 ₸/день
-    - Страховочная система: 4 000 ₸/день
-    - Горнолыжный костюм (куртка + штаны): 12 000 ₸/день
-    """,
-
-    "how_to_rent": """
-    Процесс аренды (4 шага):
-    1. Выберите снаряжение из каталога или воспользуйтесь AI-рекомендациями
-    2. Выберите даты, размер и количество — цена рассчитывается автоматически
-    3. Оплатите через Kaspi QR или банковской картой
-    4. Получите QR-код по SMS и предъявите его в пункте выдачи (5 минут)
-    """,
-
-    "payment": """
-    Способы оплаты:
-    - 📱 Kaspi QR: самый быстрый способ, сканируйте QR-код через приложение Kaspi
-    - 💳 Visa/Mastercard: онлайн оплата картой
-    - 💵 Наличные: при получении снаряжения
-    - Депозит: от 8 000 до 60 000 ₸ (возвращается)
-    - Страховка: +1 500 ₸/день (опционально, защищает от повреждений)
-    """,
-
-    "booking_rules": """
-    Правила бронирования:
-    - Минимальный срок аренды: 1 день
-    - Бронирование можно сделать заранее или в тот же день
-    - Отмена возможна при статусах «pending» или «confirmed»
-    - При задержке возврата без уведомления депозит удерживается
-    - Снаряжение необходимо вернуть чистым и в целости
-    """,
-
-    "site_navigation": """
-    Страницы сайта и их назначение:
-    - / (Главная): информация о компании, популярное снаряжение, AI-виджет
-    - /catalog: всё снаряжение, фильтры, поиск
-    - /equipment/[slug]: карточка товара, форма бронирования
-    - /ai: AI-рекомендации снаряжения (GPT-4o-mini)
-    - /checkout: страница оплаты (Kaspi QR / карта)
-    - /auth: вход через SMS
-    - /profile: история бронирований, статусы
-    - Язык: кнопки РУС / ҚАЗ / ENG в правом верхнем углу
-    """,
-
-    "ai_recommendations": """
-    Страница AI-рекомендаций (/ai):
-    - Выберите тип активности (лыжи, хайкинг, кемпинг и т.д.)
-    - Укажите город и уровень (новичок / средний / профессионал)
-    - AI автоматически проверяет погоду в Алматы
-    - GPT-4o-mini объясняет, почему выбрано это снаряжение
-    - Кнопка «Добавить всё» — добавляет выбранное в корзину
-    """,
-
-    "pickup_points": """
-    Пункты выдачи:
-    - Достык 123, Алматы (вход в здание)
-    - Рядом с курортом Шымбулак (в сезон)
-    - График работы: ежедневно 08:00 — 22:00
-    - Время выдачи: ~5 минут (покажите QR-код из SMS)
-    """,
-
-    "resorts": """
-    Обслуживаемые курорты:
-    - 🏔 Шымбулак: 25 км от Алматы, высота 2200-3200 м, трассы 20 км+
-    - ⛷️ Ой-Карагай: 30 км от Алматы, семейный курорт
-    - 🏕 Ак-Булак: летний/зимний лагерь, 50 км от города
-    """,
-
-    "faq": """
-    Часто задаваемые вопросы:
-    Q: Доставляете ли вы снаряжение?
-    A: Да, возможна доставка в Шымбулак. Свяжитесь по номеру +7 (707) 123-45-67.
-
-    Q: Есть ли детское снаряжение?
-    A: Да, есть лыжные комплекты и шлемы детских размеров.
-
-    Q: Возвращаются ли деньги?
-    A: При отмене минимум за 24 часа — полный возврат.
-
-    Q: Обязателен ли шлем?
-    A: Рекомендуется для лыж и сноуборда, обязателен для альпинизма.
-
-    Q: Kaspi QR только для Kaspi банка?
-    A: Да, работает только через приложение Kaspi.kz.
-
-    Q: Что будет, если просрочить бронь?
-    A: Статус станет «expired», депозит удерживается. Свяжитесь с нами.
-    """,
+FALLBACKS = {
+    "ru": "Я помогу по сайту PeakRent.kz: каталог, бронь, оплата, выдача и базовые советы по снаряжению.",
+    "kk": "Мен PeakRent.kz сайты бойынша көмектесемін: каталог, бронь, төлем, алу және жабдық туралы базалық кеңес.",
+    "en": "I can help with PeakRent.kz: catalog, booking, payment, pickup, and basic gear guidance.",
 }
 
 
-def build_system_prompt(user_name: str = None, locale: str = "ru") -> str:
-    """
-    GPT-ға жіберілетін system prompt жасайды.
-
-    System prompt — ботқа «кім болу керек» деп нұсқаулар береді.
-    Мұнда сайт туралы барлық ақпарат кіреді.
-
-    Args:
-        user_name: авторизацияланған пайдаланушы аты (персонализация)
-        locale:    тіл коды (ru / kk / en)
-    """
-
-    # Барлық білімді бір мәтінге жинаймыз
-    knowledge = "\n\n".join(SITE_KNOWLEDGE.values())
-
-    # Тілге сәйкес нұсқаулар
-    lang_instruction = {
-        "ru": "Отвечай на русском языке.",
-        "kk": "Қазақ тілінде жауап бер.",
-        "en": "Reply in English.",
-    }.get(locale, "Отвечай на русском языке.")
-
-    greeting = f"Пользователь: {user_name}. " if user_name else ""
-
-    return f"""Ты — AI-ассистент сайта PeakRent.kz, платформы аренды горного снаряжения в Алматы.
-
-{greeting}{lang_instruction}
-
-ТВОЯ РОЛЬ:
-- Помогать клиентам с выбором снаряжения
-- Объяснять как работает сайт (навигация, брондирование, оплата)
-- Отвечать на вопросы о компании и услугах
-- Направлять на нужные страницы сайта
-
-ПРАВИЛА ОБЩЕНИЯ:
-- Будь дружелюбным и полезным
-- Отвечай кратко (2-4 предложения), но по делу
-- Если не знаешь — скажи "Уточните у менеджера: +7 (707) 123-45-67"
-- Не придумывай цены или условия которых нет ниже
-- Если пользователь хочет забронировать — направь на /catalog или /ai
-
-ИНФОРМАЦИЯ О САЙТЕ И КОМПАНИИ:
-{knowledge}
-
-Используй эту информацию для точных ответов.
-"""
+def build_system_prompt(user_name: str | None = None, locale: str = "ru") -> str:
+    language = {"ru": "Russian", "kk": "Kazakh", "en": "English"}.get(locale, "Russian")
+    knowledge = "\n".join(SITE_KNOWLEDGE.values())
+    user_line = f"User name: {user_name}. " if user_name else ""
+    return (
+        "You are the PeakRent.kz site assistant.\n"
+        f"{user_line}Reply in {language}.\n"
+        "Your role:\n"
+        "- answer site navigation and service questions\n"
+        "- help users move to the right page\n"
+        "- give concise rental guidance without inventing facts\n"
+        "- if the user needs tailored gear advice, suggest using /ai or the catalog\n"
+        "Rules:\n"
+        "- answer in 2-4 short sentences\n"
+        "- use only the knowledge below\n"
+        "- if information is missing, say to contact +7 (707) 123-45-67\n"
+        "- include one clear next action when useful\n"
+        f"Knowledge:\n{knowledge}"
+    )
 
 
 class ChatService:
-    """
-    Чат-бот сервисі.
-
-    Методы:
-        reply() — тарихпен бірге GPT-қа сұрау жіберіп жауап алады
-        get_quick_replies() — жылдам жауап батырмалары (UI үшін)
-    """
-
     @staticmethod
-    def reply(
-        messages: list,
-        user_name: str = None,
-        locale: str = "ru",
-    ) -> str:
-        """
-        Чат тарихын алып, GPT-4o-mini арқылы жауап береді.
-
-        Args:
-            messages: [{"role": "user"|"assistant", "content": "..."}]
-            user_name: пайдаланушы аты (персонализация үшін)
-            locale:   тіл
-
-        Returns:
-            str: ботың жауабы
-        """
+    def reply(messages: list, user_name: str | None = None, locale: str = "ru") -> str:
         try:
             from openai import OpenAI
 
-            api_key = current_app.config.get("OPENAI_API_KEY", "sk-proj-xkPek9lKWo6XGn4zcGxrvTDuWAbMpgkp7BL94BUZcPqNZuF38qJV40jSa_9Tc55S3qsYzkv05VT3BlbkFJVTatt3DPAxxZVmEvm8RQWcCO21CWbWf3g_tpC0MSVMz_xYdcSiYHOkhSsJKoHEQKwEdOGdLsgAccd")
+            api_key = current_app.config.get("OPENAI_API_KEY", "")
             if not api_key:
-                return ChatService._fallback(messages)
+                return ChatService._fallback(messages, locale)
 
             client = OpenAI(api_key=api_key)
-
-            # System prompt + соңғы 10 хабарлама (контекст)
-            full_messages = [
-                {"role": "system", "content": build_system_prompt(user_name, locale)}
-            ] + messages[-10:]  # Тым ұзақ тарихты кесеміз (токен үнемдеу)
+            full_messages = [{"role": "system", "content": build_system_prompt(user_name, locale)}] + messages[-10:]
 
             response = client.chat.completions.create(
                 model=current_app.config.get("OPENAI_MODEL", "gpt-4o-mini"),
                 messages=full_messages,
-                max_tokens=500,      # Қысқа жауап (чат үшін жеткілікті)
-                temperature=0.7,     # Шығармашылық деңгейі (0=қатаң, 1=еркін)
+                max_tokens=450,
+                temperature=0.45,
                 timeout=15,
             )
-
             return response.choices[0].message.content
-
-        except Exception as e:
-            current_app.logger.warning(f"ChatService error: {e}")
-            return ChatService._fallback(messages)
+        except Exception as exc:
+            current_app.logger.warning(f"ChatService error: {exc}")
+            return ChatService._fallback(messages, locale)
 
     @staticmethod
-    def _fallback(messages: list) -> str:
-        """
-        OpenAI қолжетімсіз болса — алдын ала дайын жауаптар.
-        Бот ешқашан «жұмыс жасамайды» деп жауап бермейді.
-        """
+    def _fallback(messages: list, locale: str) -> str:
         last = messages[-1]["content"].lower() if messages else ""
 
-        if any(w in last for w in ["привет", "сәлем", "hello", "hi"]):
-            return "Сәлем! Мен PeakRent.kz сайтының AI-ассистентімін. Жабдық таңдауға, брондауға немесе сайтта навигациялауға көмектесемін. Не сұрайсыз?"
+        if any(word in last for word in ["цена", "price", "баға", "сколько"]):
+            if locale == "kk":
+                return "Бағаларды каталогтан көре аласыз: /catalog. Нақты жабдық пен күнге қарай сома автоматты есептеледі."
+            if locale == "en":
+                return "You can check prices in /catalog. The final amount is calculated automatically based on gear and dates."
+            return "Цены можно посмотреть в /catalog. Итоговая сумма считается автоматически по выбранным датам и снаряжению."
 
-        if any(w in last for w in ["цена", "баға", "стоит", "сколько"]):
-            return "Шаңғы жиынтығы — 22 000 ₸/күн, Сноуборд — 25 000 ₸/күн. Толық тізім /catalog бетінде. Касталды баға үшін /ai бетіндегі AI-ұсыныстарды пайдаланыңыз."
+        if any(word in last for word in ["бронь", "book", "бронд", "жалдау"]):
+            if locale == "kk":
+                return "Алдымен /catalog не /ai бетінде жабдық таңдаңыз, сосын күндерді белгілеп checkout арқылы төлеңіз."
+            if locale == "en":
+                return "Choose gear in /catalog or /ai first, then set dates and complete checkout."
+            return "Сначала выберите снаряжение в /catalog или /ai, затем укажите даты и завершите checkout."
 
-        if any(w in last for w in ["бронь", "брондау", "забронировать"]):
-            return "Брондау үшін: каталогтан жабдықты таңдаңыз → күндерді белгілеңіз → Kaspi QR арқылы төлеңіз. Бастау үшін /catalog бетіне өтіңіз."
+        if any(word in last for word in ["оплат", "kaspi", "төле", "pay"]):
+            if locale == "kk":
+                return "Төлем Kaspi QR, карта немесе қолма-қол арқылы жасалады. Жылдам жол керек болса, Kaspi QR таңдаңыз."
+            if locale == "en":
+                return "You can pay by Kaspi QR, card, or cash. For the fastest flow, use Kaspi QR."
+            return "Оплата доступна через Kaspi QR, карту или наличными. Для самого быстрого сценария используйте Kaspi QR."
 
-        if any(w in last for w in ["kaspi", "оплата", "төлем", "заплатить"]):
-            return "Kaspi QR, карта (Visa/MC) немесе қолма-қол төлеуге болады. Kaspi ең жылдам тәсіл — QR-кодты сканерлей салу жеткілікті."
-
-        if any(w in last for w in ["адрес", "мекен", "где", "қайда"]):
-            return "Берілу нүктесі: Достық 123, Алматы. Жұмыс уақыты: күн сайын 08:00-22:00. Шымбұлаққа жеткізу мүмкін — +7 (707) 123-45-67."
-
-        return "Сұрағыңызға жауап беруге тырысамын. Нақтырақ сұрасаңыз немесе менеджермен байланысуды қаласаңыз: +7 (707) 123-45-67."
+        return FALLBACKS.get(locale, FALLBACKS["ru"])
 
     @staticmethod
     def get_quick_replies(locale: str = "ru") -> list:
-        """
-        UI-дегі жылдам жауап батырмалары.
-        Пайдаланушыға не сұрауға болатынын көрсетеді.
-        """
-        options = {
-            "ru": [
-                "Что можно арендовать?",
-                "Как забронировать?",
-                "Сколько стоит?",
-                "Как оплатить?",
-                "Где забрать?",
-            ],
-            "kk": [
-                "Не жалдауға болады?",
-                "Қалай брондауға болады?",
-                "Баға қанша?",
-                "Қалай төлеуге болады?",
-                "Қайдан алуға болады?",
-            ],
-            "en": [
-                "What can I rent?",
-                "How to book?",
-                "What are the prices?",
-                "How to pay?",
-                "Where to pick up?",
-            ],
-        }
-        return options.get(locale, options["ru"])
+        return QUICK_REPLIES.get(locale, QUICK_REPLIES["ru"])

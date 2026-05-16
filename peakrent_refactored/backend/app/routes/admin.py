@@ -697,6 +697,11 @@ def admin_create_product():
     if size_type not in allowed_size_types:
         return jsonify({"error": "Недопустимый тип размеров"}), 400
 
+    gender = str(data.get("gender", "unisex")).strip().lower() or "unisex"
+    allowed_genders = {"male", "female", "unisex"}
+    if gender not in allowed_genders:
+        return jsonify({"error": "Недопустимое значение пола"}), 400
+
     raw_tags = data.get("tags", [])
     if not isinstance(raw_tags, list):
         return jsonify({"error": "Теги должны передаваться списком"}), 400
@@ -734,6 +739,7 @@ def admin_create_product():
         sizes=json.dumps(sizes),
         peak_months=json.dumps(peak_months),
         size_type=size_type,
+        gender=gender,
         is_active=True,
         is_featured=data.get("is_featured", False),
     )
@@ -757,6 +763,11 @@ def admin_update_product(product_id):
     if "is_active"   in data: item.is_active        = bool(data["is_active"])
     if "is_featured" in data: item.is_featured      = bool(data["is_featured"])
     if "image_url"   in data: item.images           = json.dumps([data["image_url"]])
+    if "gender" in data:
+        allowed_genders = {"male", "female", "unisex"}
+        gender = str(data["gender"]).strip().lower()
+        if gender in allowed_genders:
+            item.gender = gender
 
     db.session.commit()
     return jsonify(item.to_dict()), 200

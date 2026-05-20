@@ -1,15 +1,3 @@
-"""
-app/routes/payments.py — Маршруты оплаты
-
-Blueprint: payments_bp → префикс /api/payments
-
-Маршруты:
-    POST /api/payments/kaspi/init     — создать Kaspi QR
-    POST /api/payments/card/init      — создать платёж картой
-    GET  /api/payments/<id>/status    — проверить статус платежа
-    POST /api/payments/kaspi/webhook  — вебхук от Kaspi (авто-подтверждение)
-"""
-
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 
@@ -22,22 +10,6 @@ payments_bp = Blueprint("payments", __name__)
 
 @payments_bp.route("/kaspi/init", methods=["POST"])
 def kaspi_init():
-    """
-    Создаёт Kaspi QR код для оплаты бронирования.
-
-    Body: {
-        "booking_id": 42,
-        "name":  "Айдос Бекенов",
-        "phone": "+77071234567"
-    }
-
-    Response: {
-        "payment_id": "KASPI-A1B2C3D4",
-        "qr_code":    "data:image/svg+xml;base64,...",
-        "expires_at": "2025-02-01T12:30:00Z",
-        "amount":     47000.0
-    }
-    """
     data       = request.get_json() or {}
     booking_id = data.get("booking_id")
     name       = data.get("name", "").strip()
@@ -68,20 +40,6 @@ def kaspi_init():
 
 @payments_bp.route("/card/init", methods=["POST"])
 def card_init():
-    """
-    Инициирует оплату картой через CloudPayments.
-
-    Body: {
-        "booking_id": 42,
-        "name":  "Айдос Бекенов",
-        "phone": "+77071234567"
-    }
-
-    Response: {
-        "payment_id":  "CARD-A1B2C3D4",
-        "payment_url": "https://checkout.cloudpayments.ru/?invoice=..."
-    }
-    """
     data       = request.get_json() or {}
     booking_id = data.get("booking_id")
     name       = data.get("name", "").strip()

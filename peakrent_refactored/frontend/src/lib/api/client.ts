@@ -17,7 +17,7 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// ── Авторизация ───────────────────────────────────────────────────────────────
+// -- Авторизация ---
 export const authAPI = {
   sendOtp:   (data: { email?: string; phone?: string }) =>
     apiClient.post<{ message: string; dev_code?: string }>("/auth/send-otp", data),
@@ -31,7 +31,7 @@ export const authAPI = {
   updateMe:  (data: { name?: string }) => apiClient.put<User>("/auth/me", data),
 };
 
-// ── Снаряжение ────────────────────────────────────────────────────────────────
+// -- Снаряжение ---
 export const equipmentAPI = {
   list: (params?: {
     category?: string; search?: string; min_price?: number;
@@ -48,7 +48,13 @@ export const equipmentAPI = {
   delete:       (id: number) => apiClient.delete(`/equipment/${id}`),
 };
 
-// ── Бронирования ──────────────────────────────────────────────────────────────
+export const favoriteAPI = {
+  list: () => apiClient.get<Equipment[]>("/equipment/favorites"),
+  add: (equipmentId: number) => apiClient.post(`/equipment/${equipmentId}/favorite`),
+  remove: (equipmentId: number) => apiClient.delete(`/equipment/${equipmentId}/favorite`),
+};
+
+// -- Бронирования ---
 export const bookingAPI = {
   create: (data: any) => apiClient.post<Booking>("/bookings", data),
   list:   ()           => apiClient.get<Booking[]>("/bookings/my"),
@@ -56,7 +62,7 @@ export const bookingAPI = {
   cancel: (id: number) => apiClient.delete(`/bookings/${id}`),
 };
 
-// ── Рекомендации ──────────────────────────────────────────────────────────────
+// -- Рекомендации ---
 export const recommendAPI = {
   get: (data: {
     activity?: string; city?: string; level?: string;
@@ -68,7 +74,7 @@ export const recommendAPI = {
     apiClient.get<Equipment[]>("/recommendations/related", { params: { equipment_id, limit } }),
 };
 
-// ── AI чат ────────────────────────────────────────────────────────────────────
+// -- AI чат ---
 export const aiAPI = {
   chat: (data: {
     messages: Array<{ role: "user" | "assistant"; content: string }>;

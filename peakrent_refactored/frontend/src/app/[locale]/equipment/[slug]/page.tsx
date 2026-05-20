@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft, Star, Shield, Clock, Truck, Minus, Plus,
-  Info, ChevronRight,
+  Info, ChevronRight, Heart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Navbar } from "@/components/layout/navbar";
-import { equipmentAPI, bookingAPI, reviewAPI, recommendAPI } from "@/lib/api/client";
+import { equipmentAPI, bookingAPI, reviewAPI, recommendAPI, favoriteAPI } from "@/lib/api/client";
 import { cn, formatPrice, daysBetween } from "@/lib/utils";
-import { useAuthStore } from "@/lib/stores";
+import { useAuthStore, useBookingStore } from "@/lib/stores";
 import type { Locale, Equipment, Review, Booking } from "@/lib/types";
 
 export default function EquipmentPage({
@@ -22,6 +22,8 @@ export default function EquipmentPage({
   const l = params.locale as Locale;
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const addToCart = useBookingStore((s) => s.addItem);
+  const setRentalPeriod = useBookingStore((s) => s.setRentalPeriod);
 
   const [eq,       setEq]       = useState<Equipment | null>(null);
   const [reviews,  setReviews]  = useState<Review[]>([]);
@@ -32,6 +34,8 @@ export default function EquipmentPage({
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewEligibleBookingId, setReviewEligibleBookingId] = useState<number | null>(null);
   const [reviewGateChecked, setReviewGateChecked] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   // Booking state
   const [start,      setStart]      = useState("");
@@ -102,6 +106,28 @@ export default function EquipmentPage({
     };
   }, [eq, reviews, user]);
 
+  useEffect(() => {
+    if (!eq || !user) {
+      setIsFavorite(false);
+      return;
+    }
+
+    let cancelled = false;
+    favoriteAPI.list()
+      .then((res) => {
+        if (!cancelled) {
+          setIsFavorite(res.data.some((item) => item.id === eq.id));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsFavorite(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [eq, user]);
+
   const handleBook = useCallback(async () => {
     if (!eq) return;
     if (!start || !end) { toast.error("Выберите даты"); return; }
@@ -122,6 +148,17 @@ export default function EquipmentPage({
       setSubmitting(false);
     }
   }, [eq, start, end, days, qty, size, insurance, l, router]);
+
+  const handleAddToCart = useCallback(() => {
+    if (!eq) return;
+    if (!start || !end) { toast.error("Выберите даты"); return; }
+    if (days < 1) { toast.error("Минимум 1 день"); return; }
+    if (eq.size_type !== "none" && !size) { toast.error("Выберите размер"); return; }
+
+    setRentalPeriod(start, end);
+    addToCart(eq, qty, size || null, days);
+    toast.success(l === "ru" ? "Добавлено в корзину" : l === "kk" ? "Себетке қосылды" : "Added to cart");
+  }, [eq, start, end, days, qty, size, l, addToCart, setRentalPeriod]);
 
   const handleReviewSubmit = useCallback(async () => {
     if (!eq) return;
@@ -162,6 +199,33 @@ export default function EquipmentPage({
       setReviewSubmitting(false);
     }
   }, [eq, l, reviewComment, reviewEligibleBookingId, reviewRating, router, user]);
+
+  const toggleFavorite = useCallback(async () => {
+    if (!eq) return;
+
+    if (!user) {
+      toast.error(l === "ru" ? "Сначала войдите в аккаунт" : l === "kk" ? "Алдымен аккаунтқа кіріңіз" : "Please sign in first");
+      router.push(`/${l}/auth`);
+      return;
+    }
+
+    setFavoriteLoading(true);
+    try {
+      if (isFavorite) {
+        await favoriteAPI.remove(eq.id);
+        setIsFavorite(false);
+        toast.success(l === "ru" ? "Удалено из избранного" : l === "kk" ? "Таңдаулылардан өшірілді" : "Removed from favorites");
+      } else {
+        await favoriteAPI.add(eq.id);
+        setIsFavorite(true);
+        toast.success(l === "ru" ? "Добавлено в избранное" : l === "kk" ? "Таңдаулыларға қосылды" : "Added to favorites");
+      }
+    } catch {
+      toast.error(l === "ru" ? "Не удалось обновить избранное" : l === "kk" ? "Таңдаулылар жаңартылмады" : "Failed to update favorites");
+    } finally {
+      setFavoriteLoading(false);
+    }
+  }, [eq, isFavorite, l, router, user]);
 
   if (loading) {
     return (
@@ -226,7 +290,21 @@ export default function EquipmentPage({
                 <div className="absolute top-4 left-4">
                   <span className="badge-category">{eq.category?.icon} {catN}</span>
                 </div>
-                <div className="absolute top-4 right-4">
+                <div className="absolute top-4 right-4 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleFavorite}
+                    disabled={favoriteLoading}
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur transition-all",
+                      isFavorite
+                        ? "border-rose-200 bg-white/95 text-rose-500 shadow-lg"
+                        : "border-white/70 bg-white/85 text-slate-500 hover:text-rose-500"
+                    )}
+                    aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                  >
+                    <Heart className={cn("h-4.5 w-4.5", isFavorite && "fill-current")} />
+                  </button>
                   <span className={cn(
                     "text-xs font-bold px-2.5 py-1 rounded-full",
                     eq.stock === 0 ? "bg-red-50 text-red-600"
@@ -258,7 +336,7 @@ export default function EquipmentPage({
                 <h1 className="font-display text-2xl font-extrabold text-navy mb-2">{name}</h1>
                 {eq.avg_rating && (
                   <div className="flex items-center gap-2 mb-2 text-sm text-slate-500">
-                    <span className="text-amber-400">{"★".repeat(Math.round(eq.avg_rating))}</span>
+                    <span className="text-amber-400">{"".repeat(Math.round(eq.avg_rating))}</span>
                     {eq.avg_rating} ({eq.review_count})
                   </div>
                 )}
@@ -432,7 +510,7 @@ export default function EquipmentPage({
                             <div className="flex items-center justify-between mb-1">
                               <span className="font-display font-bold text-sm text-navy">{r.user.name}</span>
                               <div className="flex items-center gap-1">
-                                <span className="text-amber-400 text-xs">{"★".repeat(r.rating)}</span>
+                                <span className="text-amber-400 text-xs">{"".repeat(r.rating)}</span>
                                 <span className="text-xs text-slate-400">
                                   {new Date(r.created_at).toLocaleDateString("ru-KZ")}
                                 </span>
@@ -458,7 +536,7 @@ export default function EquipmentPage({
                   <h2 className="font-display font-extrabold text-lg text-navy mb-1 hidden lg:block">{name}</h2>
                   {eq.avg_rating && (
                     <div className="flex items-center gap-1.5 text-sm text-slate-500">
-                      <span className="text-amber-400">{"★".repeat(Math.round(eq.avg_rating))}</span>
+                      <span className="text-amber-400">{"".repeat(Math.round(eq.avg_rating))}</span>
                       {eq.avg_rating} ({eq.review_count})
                     </div>
                   )}
@@ -621,34 +699,48 @@ export default function EquipmentPage({
                     </div>
                   )}
 
-                  {/* Кнопка бронирования */}
-                  <button
-                    onClick={handleBook}
-                    disabled={submitting || eq.stock === 0}
-                    className={cn(
-                      "btn-primary w-full !py-4 !text-base group",
-                      eq.stock === 0 && "opacity-50 cursor-not-allowed",
-                    )}
-                  >
-                    {submitting ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        {l === "ru" ? "Оформляем..." : l === "kk" ? "Рәсімделуде..." : "Processing..."}
-                      </div>
-                    ) : eq.stock === 0 ? (
-                      l === "ru" ? "Нет в наличии" : l === "kk" ? "Қолжетімсіз" : "Out of Stock"
-                    ) : !start || !end ? (
-                      l === "ru" ? "Выберите даты" : l === "kk" ? "Күндерді таңдаңыз" : "Select dates"
-                    ) : (
-                      <span className="flex items-center gap-2">
-                        {l === "ru" ? "Перейти к оплате" : l === "kk" ? "Төлемге өту" : "Proceed to Payment"}
-                        <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                      </span>
-                    )}
-                  </button>
+                  {/* Cart and payment actions */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      disabled={submitting || eq.stock === 0}
+                      className={cn(
+                        "btn-secondary w-full !py-4 !text-base",
+                        eq.stock === 0 && "opacity-50 cursor-not-allowed",
+                      )}
+                    >
+                      {l === "ru" ? "\u0412 \u043a\u043e\u0440\u0437\u0438\u043d\u0443" : l === "kk" ? "\u0421\u0435\u0431\u0435\u0442\u043a\u0435 \u049b\u043e\u0441\u0443" : "Add to cart"}
+                    </button>
+
+                    <button
+                      onClick={handleBook}
+                      disabled={submitting || eq.stock === 0}
+                      className={cn(
+                        "btn-primary w-full !py-4 !text-base group",
+                        eq.stock === 0 && "opacity-50 cursor-not-allowed",
+                      )}
+                    >
+                      {submitting ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                          {l === "ru" ? "\u041e\u0444\u043e\u0440\u043c\u043b\u044f\u0435\u043c..." : l === "kk" ? "\u0420\u04d9\u0441\u0456\u043c\u0434\u0435\u043b\u0443\u0434\u0435..." : "Processing..."}
+                        </div>
+                      ) : eq.stock === 0 ? (
+                        l === "ru" ? "\u041d\u0435\u0442 \u0432 \u043d\u0430\u043b\u0438\u0447\u0438\u0438" : l === "kk" ? "\u049a\u043e\u043b\u0436\u0435\u0442\u0456\u043c\u0441\u0456\u0437" : "Out of Stock"
+                      ) : !start || !end ? (
+                        l === "ru" ? "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0430\u0442\u044b" : l === "kk" ? "\u041a\u04af\u043d\u0434\u0435\u0440\u0434\u0456 \u0442\u0430\u04a3\u0434\u0430\u04a3\u044b\u0437" : "Select dates"
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          {l === "ru" ? "\u041f\u0435\u0440\u0435\u0439\u0442\u0438 \u043a \u043e\u043f\u043b\u0430\u0442\u0435" : l === "kk" ? "\u0422\u04e9\u043b\u0435\u043c\u0433\u0435 \u04e9\u0442\u0443" : "Proceed to Payment"}
+                          <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                        </span>
+                      )}
+                    </button>
+                  </div>
 
                   <p className="text-center text-xs text-slate-400">
-                    💳 Kaspi QR · Visa/MC · {l === "ru" ? "Наличные" : l === "kk" ? "Қолма-қол" : "Cash"}
+                    💳 Kaspi QR · Visa/MC
                   </p>
                 </div>
               </div>
@@ -659,3 +751,5 @@ export default function EquipmentPage({
     </>
   );
 }
+
+

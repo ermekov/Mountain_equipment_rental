@@ -3,11 +3,11 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Check, QrCode, CreditCard, Banknote, CheckCircle2, Shield } from "lucide-react";
+import { Check, QrCode, CreditCard, CheckCircle2, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatPrice } from "@/lib/utils";
 import { useBookingStore, useAuthStore } from "@/lib/stores";
-import { paymentAPI } from "@/lib/api/client";
+import { bookingAPI, paymentAPI } from "@/lib/api/client";
 import { Navbar } from "@/components/layout/navbar";
 import type { Locale, PaymentMethod } from "@/lib/types";
 
@@ -29,6 +29,7 @@ function CheckoutInner({ locale }: { locale: Locale }) {
   const router    = useRouter();
   const sp        = useSearchParams();
   const bookingId = sp.get("booking_id");
+  const [currentBookingId, setCurrentBookingId] = useState<string | null>(bookingId);
 
   const [step,     setStep]   = useState<1 | 2 | 3>(bookingId ? 2 : 1);
   const [name,     setName]   = useState("");
@@ -38,8 +39,11 @@ function CheckoutInner({ locale }: { locale: Locale }) {
   const [payId,    setPayId]  = useState("");
   const [payStatus,setPaySt]  = useState<"pending" | "paid" | "expired">("pending");
   const [loading,  setLoad]   = useState(false);
+  const [displayTotal, setDisplayTotal] = useState(0);
 
   const cartItems  = useBookingStore((s) => s.items);
+  const cartStartDate = useBookingStore((s) => s.start_date);
+  const cartEndDate = useBookingStore((s) => s.end_date);
   const clearCart  = useBookingStore((s) => s.clearCart);
   const totalPrice = useBookingStore((s) => s.totalPrice());
   const user       = useAuthStore((s) => s.user);
@@ -47,6 +51,20 @@ function CheckoutInner({ locale }: { locale: Locale }) {
   useEffect(() => {
     if (user) { setName(user.name); setPhone(user.phone); }
   }, [user]);
+
+  useEffect(() => {
+    setCurrentBookingId(bookingId);
+  }, [bookingId]);
+
+  useEffect(() => {
+    if (bookingId) {
+      bookingAPI.getOne(bookingId)
+        .then((res) => setDisplayTotal(res.data.total_price))
+        .catch(() => setDisplayTotal(totalPrice));
+      return;
+    }
+    setDisplayTotal(totalPrice);
+  }, [bookingId, totalPrice]);
 
   // Опрос статуса оплаты каждые 3 секунды
   useEffect(() => {
@@ -57,23 +75,52 @@ function CheckoutInner({ locale }: { locale: Locale }) {
         if (data.status === "paid") {
           setPaySt("paid");
           clearCart();
-          setTimeout(() => router.push(`/${l}/booking/${bookingId ?? "0"}/success`), 2000);
+          setTimeout(() => router.push(`/${l}/booking/${currentBookingId ?? "0"}/success`), 2000);
         } else if (data.status === "expired") {
           setPaySt("expired");
         }
       } catch {}
     }, 3000);
     return () => clearInterval(t);
-  }, [payStatus, payId, bookingId, clearCart, router, l]);
+  }, [payStatus, payId, currentBookingId, clearCart, router, l]);
 
   const handlePay = useCallback(async () => {
     if (!name.trim()) { toast.error("Введите имя"); return; }
     if (phone.replace(/\D/g, "").length < 11) { toast.error("Введите корректный номер"); return; }
     setLoad(true);
     try {
+      let effectiveBookingId = currentBookingId;
+
+      if (!effectiveBookingId) {
+        if (cartItems.length === 0) {
+          toast.error("РљРѕСЂР·РёРЅР° РїСѓСЃС‚Р°");
+          return;
+        }
+        if (!cartStartDate || !cartEndDate) {
+          toast.error(l === "ru" ? "Р’С‹Р±РµСЂРёС‚Рµ РґР°С‚С‹ Р°СЂРµРЅРґС‹" : l === "kk" ? "Р–Р°Р»РґР°Сѓ РєТЇРЅРґРµСЂС–РЅ С‚Р°ТЈРґР°ТЈС‹Р·" : "Select rental dates");
+          return;
+        }
+
+        const bookingRes = await bookingAPI.create({
+          items: cartItems.map((item) => ({
+            equipment_id: item.equipment_id,
+            quantity: item.quantity,
+            size: item.size || undefined,
+          })),
+          start_date: cartStartDate,
+          end_date: cartEndDate,
+          payment_method: payMethod === "card" ? "card" : "kaspi",
+          phone,
+          name,
+        });
+        effectiveBookingId = String(bookingRes.data.id);
+        setCurrentBookingId(effectiveBookingId);
+        setDisplayTotal(bookingRes.data.total_price);
+      }
+
       if (payMethod === "kaspi_qr") {
         const { data } = await paymentAPI.kaspiInit({
-          booking_id: bookingId ?? "cart",
+          booking_id: effectiveBookingId,
           name,
           phone,
         });
@@ -81,7 +128,7 @@ function CheckoutInner({ locale }: { locale: Locale }) {
         setPayId(data.payment_id);
       } else if (payMethod === "card") {
         const { data } = await paymentAPI.cardInit({
-          booking_id: bookingId ?? "cart",
+          booking_id: effectiveBookingId,
           name,
           phone,
         });
@@ -94,7 +141,7 @@ function CheckoutInner({ locale }: { locale: Locale }) {
     } finally {
       setLoad(false);
     }
-  }, [name, phone, payMethod, bookingId]);
+  }, [name, phone, payMethod, currentBookingId, cartItems, cartStartDate, cartEndDate, l]);
 
   const steps = [
     l === "ru" ? "Подтверждение" : l === "kk" ? "Растау" : "Confirm",
@@ -184,7 +231,7 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                       {l === "ru" ? "Итого" : l === "kk" ? "Барлығы" : "Total"}
                     </span>
                     <span className="font-display font-extrabold text-xl text-ice">
-                      {formatPrice(totalPrice)}
+                      {formatPrice(displayTotal || totalPrice)}
                     </span>
                   </div>
                   <button onClick={() => setStep(2)} className="btn-primary w-full !py-3.5">
@@ -242,11 +289,10 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
                     {l === "ru" ? "Способ оплаты" : l === "kk" ? "Төлем тәсілі" : "Payment Method"}
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {[
                       { id: "kaspi_qr" as PaymentMethod, icon: <QrCode className="w-5 h-5" />,     label: "Kaspi QR",                         rec: true  },
                       { id: "card"     as PaymentMethod, icon: <CreditCard className="w-5 h-5" />, label: l === "ru" ? "Карта" : l === "kk" ? "Карта" : "Card",       rec: false },
-                      { id: "cash"     as PaymentMethod, icon: <Banknote className="w-5 h-5" />,   label: l === "ru" ? "Наличные" : l === "kk" ? "Қолма-қол" : "Cash",    rec: false },
                     ].map((pm) => (
                       <button
                         key={pm.id}
@@ -277,7 +323,7 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 ) : (
-                  l === "ru" ? `Оплатить ${formatPrice(totalPrice)}` : l === "kk" ? `${formatPrice(totalPrice)} төлеу` : `Pay ${formatPrice(totalPrice)}`
+                  l === "ru" ? `Оплатить ${formatPrice(displayTotal || totalPrice)}` : l === "kk" ? `${formatPrice(displayTotal || totalPrice)} төлеу` : `Pay ${formatPrice(displayTotal || totalPrice)}`
                 )}
               </button>
               <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
@@ -307,7 +353,7 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                 )}
 
                 <div className="font-display font-extrabold text-2xl text-ice mb-1">
-                  {formatPrice(totalPrice)}
+                  {formatPrice(displayTotal || totalPrice)}
                 </div>
 
                 {payStatus === "pending" && (
@@ -326,7 +372,7 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                       onClick={() => {
                         setPaySt("paid");
                         clearCart();
-                        setTimeout(() => router.push(`/${l}/booking/${bookingId ?? "0"}/success`), 1500);
+                        setTimeout(() => router.push(`/${l}/booking/${currentBookingId ?? "0"}/success`), 1500);
                       }}
                       className="btn-primary text-sm"
                     >

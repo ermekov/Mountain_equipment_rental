@@ -12,6 +12,7 @@ app/models/__init__.py — Пакет моделей базы данных
 from .user      import User, OTPCode
 from .equipment import Equipment, Category
 from .booking   import Booking, BookingItem
+from .favorite  import Favorite
 from .review    import Review
 
 # Список всех моделей (используется при документировании)
@@ -22,5 +23,6 @@ __all__ = [
     "Equipment",
     "Booking",
     "BookingItem",
+    "Favorite",
     "Review",
 ]

@@ -69,6 +69,11 @@ type ReviewItem = {
   avatar: string;
 };
 
+type BrandItem = {
+  name: string;
+  src: string;
+};
+
 const HERO_IMAGE =
   "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=1920&auto=format&fit=crop&q=80";
 
@@ -98,6 +103,16 @@ const TICKER_ITEMS = [
   "Kaspi QR",
   "AI-подбор",
   "PeakRent.kz",
+];
+
+const BRANDS: BrandItem[] = [
+  { name: "Keen", src: "/brands/keen.svg" },
+  { name: "Marmot", src: "/brands/marmot.png" },
+  { name: "MSR", src: "/brands/msr.png" },
+  { name: "Outventure", src: "/brands/outventure.jpg" },
+  { name: "The North Face", src: "/brands/thenorthface.png" },
+  { name: "Vento", src: "/brands/vento.jpg" },
+  { name: "Volokl", src: "/brands/volokl.png" },
 ];
 
 const ACTIVITIES: ActivityItem[] = [
@@ -434,6 +449,16 @@ const SECTION_LABELS = {
     ru: "Короткие отзывы от тех, кто уже бронировал PeakRent перед выездом.",
     kk: "PeakRent арқылы брондаған клиенттердің қысқа пікірлері.",
     en: "Short notes from people who already booked with PeakRent.",
+  },
+  brandsTitle: {
+    ru: "Наши бренды",
+    kk: "Біздің брендтер",
+    en: "Our brands",
+  },
+  brandsText: {
+    ru: "Работаем с проверенными outdoor-брендами, чтобы в аренде было только надежное снаряжение.",
+    kk: "Жалға беруде тек сенімді жабдық болуы үшін тексерілген outdoor брендтермен жұмыс істейміз.",
+    en: "We work with trusted outdoor brands so every rental item feels dependable in the mountains.",
   },
   ctaTitle: {
     ru: "Соберите комплект до выезда в горы",
@@ -1417,6 +1442,75 @@ function ReviewsSection({ locale }: { locale: Locale }) {
   );
 }
 
+function BrandsSection({ locale }: { locale: Locale }) {
+  return (
+    <section className="relative overflow-hidden bg-white pb-20 sm:pb-24">
+      <div className="pointer-events-none absolute inset-x-0 top-8 h-40 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.14),transparent_68%)]" />
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.25 }}
+          variants={fadeUpVariants}
+          className="relative overflow-hidden rounded-[40px] border border-slate-200/80 bg-[linear-gradient(145deg,#f8fbff_0%,#eef6ff_45%,#ffffff_100%)] px-6 py-10 shadow-[0_28px_100px_rgba(10,22,40,0.08)] sm:px-10 sm:py-12"
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.72)_0%,transparent_42%,rgba(14,165,233,0.08)_100%)]" />
+          <div className="pointer-events-none absolute -right-24 top-10 h-56 w-56 rounded-full bg-ice/10 blur-3xl" />
+          <div className="pointer-events-none absolute -left-16 bottom-0 h-44 w-44 rounded-full bg-navy/[0.05] blur-3xl" />
+
+          <div className="relative">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.32em] text-ice-dark">
+                PeakRent Gear Line-up
+              </p>
+              <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-navy font-display sm:text-5xl">
+                {copy(locale, SECTION_LABELS.brandsTitle)}
+              </h2>
+              <p className="mt-4 text-base leading-8 text-slate-600">
+                {copy(locale, SECTION_LABELS.brandsText)}
+              </p>
+            </div>
+
+            <div className="inline-flex items-center gap-3 self-start rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm text-slate-500 shadow-[0_12px_30px_rgba(10,22,40,0.06)] backdrop-blur">
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_16px_rgba(74,222,128,0.8)]" />
+              {BRANDS.length} outdoor partners
+            </div>
+          </div>
+
+          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+            {BRANDS.map((brand, index) => (
+              <motion.div
+                key={brand.name}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.45, delay: index * 0.05 }}
+                className="group relative rounded-[28px] border border-white/80 bg-white/88 p-4 shadow-[0_18px_45px_rgba(10,22,40,0.06)] transition-all duration-300 hover:-translate-y-1.5 hover:border-ice/30 hover:shadow-[0_24px_55px_rgba(14,165,233,0.16)]"
+              >
+                <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-ice/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                <div className="relative h-16 rounded-2xl bg-[linear-gradient(180deg,rgba(248,250,252,0.95),rgba(255,255,255,0.72))] ring-1 ring-slate-100/80">
+                  <Image
+                    src={brand.src}
+                    alt={brand.name}
+                    fill
+                    sizes="(max-width: 640px) 45vw, (max-width: 1280px) 22vw, 12vw"
+                    className="object-contain p-3 grayscale transition duration-300 group-hover:scale-[1.04] group-hover:grayscale-0"
+                  />
+                </div>
+                <div className="mt-3 text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 transition-colors duration-300 group-hover:text-slate-500">
+                  {brand.name}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
 function CtaSection({ locale }: { locale: Locale }) {
   const reduceMotion = useReducedMotion();
 
@@ -1562,6 +1656,7 @@ export default function HomePageClient({
         <PopularSection locale={locale} featured={featured} />
         <HowItWorksSection locale={locale} />
         <ReviewsSection locale={locale} />
+        <BrandsSection locale={locale} />
         <CtaSection locale={locale} />
         <FooterSection locale={locale} />
       </main>

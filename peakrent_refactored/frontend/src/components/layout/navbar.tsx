@@ -87,13 +87,18 @@ export function Navbar({ locale }: { locale: Locale }) {
               </div>
 
               {/* Корзина */}
-              {cartCount > 0 && (
-                <Link href={`/${l}/checkout`}
-                  className="relative flex items-center gap-1.5 bg-ice text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-ice-dark transition-colors">
-                  <ShoppingCart className="w-3.5 h-3.5" />
-                  <span>{cartCount}</span>
-                </Link>
-              )}
+              <Link
+                href={`/${l}/cart`}
+                className={cn(
+                  "relative flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors",
+                  cartCount > 0
+                    ? "bg-ice text-white hover:bg-ice-dark"
+                    : "bg-white/10 text-white/70 hover:text-white hover:bg-white/15"
+                )}
+              >
+                <ShoppingCart className="w-3.5 h-3.5" />
+                <span>{cartCount}</span>
+              </Link>
 
               {/* Авторизация */}
               {user ? (

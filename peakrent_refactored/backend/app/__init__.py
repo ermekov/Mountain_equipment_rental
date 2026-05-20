@@ -18,28 +18,15 @@ from .seed import seed_database
 
 
 def create_app(config_class=Config):
-    """
-    Создаёт и настраивает Flask-приложение.
-
-    Args:
-        config_class: класс конфигурации (по умолчанию — Config)
-
-    Returns:
-        Flask: готовое приложение
-    """
     app = Flask(__name__)
 
-    # 1. Загружаем конфигурацию
     app.config.from_object(config_class)
 
-    # 2. Инициализируем расширения (db, cors)
     db.init_app(app)
     cors.init_app(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
-    # 3. Регистрируем Blueprint'ы (группы маршрутов)
     _register_blueprints(app)
 
-    # 4. Создаём таблицы и заполняем БД при первом запуске
     with app.app_context():
         db.create_all()
         seed_database()
@@ -80,7 +67,6 @@ def _register_blueprints(app: Flask):
     app.register_blueprint(weather_bp,          url_prefix="/api/weather")
     app.register_blueprint(admin_bp,            url_prefix="/api/admin")
 
-    # Обработчики ошибок
     @app.errorhandler(404)
     def not_found(e):
         from flask import jsonify

@@ -1,18 +1,3 @@
-"""
-app/models/equipment.py — Модели снаряжения и категорий
-
-Category  — категория снаряжения (Лыжи, Сноуборд, Хайкинг...)
-Equipment — единица снаряжения для аренды
-
-Структура данных:
-    Category (1) ──< Equipment (многие)
-    Одна категория содержит много позиций снаряжения.
-
-Хранение JSON-полей:
-    images, tags, sizes, peak_months хранятся как JSON-строки в БД.
-    Это проще чем создавать отдельные таблицы для небольших списков.
-"""
-
 import json
 from datetime import datetime
 from sqlalchemy import func
@@ -20,26 +5,15 @@ from ..extensions import db
 
 
 class Category(db.Model):
-    """
-    Категория снаряжения.
-
-    Примеры: Горные лыжи, Сноуборд, Хайкинг, Кемпинг, Альпинизм, Треккинг
-
-    Поддержка трёх языков (RU / KK / EN) важна для казахстанского рынка:
-        - Русский  — основной язык (~70% пользователей)
-        - Казахский — государственный язык
-        - Английский — для туристов
-    """
-
     __tablename__ = "categories"
 
     id         = db.Column(db.Integer, primary_key=True)
-    slug       = db.Column(db.String(60),  unique=True, nullable=False)  # URL-идентификатор
+    slug       = db.Column(db.String(60),  unique=True, nullable=False)
     name_ru    = db.Column(db.String(120), default="")
     name_kk    = db.Column(db.String(120), default="")
     name_en    = db.Column(db.String(120), default="")
-    icon       = db.Column(db.String(10),  default="")   # Эмодзи иконка
-    sort_order = db.Column(db.Integer,     default=0)    # Порядок отображения
+    icon       = db.Column(db.String(10),  default="")
+    sort_order = db.Column(db.Integer,     default=0)
 
     # Связь: одна категория → много единиц снаряжения
     equipment = db.relationship("Equipment", back_populates="category", lazy="dynamic")
@@ -59,19 +33,6 @@ class Category(db.Model):
 
 
 class Equipment(db.Model):
-    """
-    Единица снаряжения для аренды.
-
-    Ключевые поля:
-        slug         — URL-идентификатор (например: "alpine-ski-set")
-        price_per_day — цена аренды в день (в тенге ₸)
-        deposit_amount — залог (возвращается при возврате)
-        stock        — количество единиц на складе
-        size_type    — тип размерной сетки: ski_length / boot_size / clothing / none
-        peak_months  — месяцы повышенного спроса (влияет на AI-рекомендации)
-        is_featured  — показывать на главной странице
-    """
-
     __tablename__ = "equipment"
 
     id             = db.Column(db.Integer, primary_key=True)
@@ -89,8 +50,8 @@ class Equipment(db.Model):
     description_en = db.Column(db.Text, default="")
 
     # Финансовые поля
-    price_per_day  = db.Column(db.Integer, default=0)     # Цена в тенге ₸
-    deposit_amount = db.Column(db.Integer, default=0)     # Залог в тенге ₸
+    price_per_day  = db.Column(db.Integer, default=0)
+    deposit_amount = db.Column(db.Integer, default=0)
 
     # Наличие
     stock          = db.Column(db.Integer, default=1)
@@ -115,6 +76,7 @@ class Equipment(db.Model):
     category = db.relationship("Category",   back_populates="equipment")
     b_items  = db.relationship("BookingItem", back_populates="equipment", lazy="dynamic")
     reviews  = db.relationship("Review",      back_populates="equipment", lazy="dynamic")
+    favorites = db.relationship("Favorite",   back_populates="equipment", lazy="dynamic", cascade="all, delete-orphan")
 
     # ── Вычисляемые свойства ──────────────────────────────────────────────────
 

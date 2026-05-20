@@ -3,7 +3,7 @@ export type ActivitySlug = "skiing" | "snowboard" | "hiking" | "camping" | "clim
 export type SizeType = "ski_length" | "boot_size" | "clothing" | "none";
 export type Gender = "male" | "female" | "unisex";
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
-export type PaymentMethod = "kaspi_qr" | "card" | "cash";
+export type PaymentMethod = "kaspi_qr" | "card";
 
 export interface Category {
   id: number; slug: string; icon: string;
@@ -52,6 +52,12 @@ export interface CartItem {
   equipment_id: number; equipment: Equipment;
   quantity: number; size: string | null;
   days: number; subtotal: number;
+}
+
+export interface CartStateData {
+  items: CartItem[];
+  start_date: string;
+  end_date: string;
 }
 
 export interface Review {

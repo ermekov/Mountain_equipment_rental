@@ -1,55 +1,29 @@
-"""
-app/models/booking.py — Модели бронирования
-
-Booking     — главная запись бронирования (заголовок)
-BookingItem — позиция бронирования (конкретное снаряжение)
-
-Структура данных (паттерн "Заголовок-Позиции"):
-    Booking (1) ──< BookingItem (многие)
-    Один заказ может содержать несколько позиций снаряжения.
-
-Жизненный цикл бронирования:
-    pending   → создано, ожидает оплаты
-    confirmed → оплачено (Kaspi QR или наличные)
-    completed → снаряжение возвращено
-    cancelled → отменено пользователем или истекло время
-"""
-
 from datetime import datetime
 from ..extensions import db
 
 
 class Booking(db.Model):
-    """
-    Бронирование — основная запись заказа.
-
-    Связывает пользователя с выбранным снаряжением на определённые даты.
-    """
-
     __tablename__ = "bookings"
 
     id             = db.Column(db.Integer, primary_key=True)
     user_id        = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
-    # Даты аренды
     start_date     = db.Column(db.Date, nullable=False)
     end_date       = db.Column(db.Date, nullable=False)
 
     # Финансы
-    total_price    = db.Column(db.Integer, default=0)  # Итого в тенге ₸
+    total_price    = db.Column(db.Integer, default=0)
 
     # Статус бронирования
     status         = db.Column(db.String(20), default="pending")
 
     # Информация об оплате
-    payment_method = db.Column(db.String(20), nullable=True)  # "kaspi" | "card" | "cash"
+    payment_method = db.Column(db.String(20), nullable=True)  # "kaspi" "card"
     kaspi_order_id = db.Column(db.String(100), nullable=True)  # ID заказа в Kaspi
 
-    # Временные метки
-    confirmed_at   = db.Column(db.String(50), nullable=True)  # Время подтверждения
+    confirmed_at   = db.Column(db.String(50), nullable=True)
     created_at     = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Дополнительная информация
     notes          = db.Column(db.Text, default="")
 
     # Связи с другими таблицами
@@ -69,15 +43,10 @@ class Booking(db.Model):
 
     @property
     def booking_number(self) -> str:
-        """
-        Человекочитаемый номер брони для SMS и квитанций.
-        Формат: PR-2025-00042
-        """
         year = self.created_at.year if self.created_at else 2025
         return f"PR-{year}-{self.id:05d}"
 
     def to_dict(self) -> dict:
-        """Сериализует бронирование для JSON-ответа API."""
         return {
             "id":             self.id,
             "booking_number": self.booking_number,

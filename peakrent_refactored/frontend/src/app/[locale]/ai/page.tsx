@@ -401,7 +401,7 @@ export default function AIPage({ params }: { params: { locale: string } }) {
             {cartCount > 0 && (
               <div className="mt-10 text-center">
                 <Link
-                  href={`/${locale}/checkout`}
+                  href={`/${locale}/cart`}
                   className="inline-flex items-center gap-2 rounded-full bg-ice px-8 py-4 text-base font-bold text-white shadow-[0_20px_50px_rgba(14,165,233,0.3)] transition hover:bg-ice-dark"
                 >
                   <ShoppingCart className="h-5 w-5" />

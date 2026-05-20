@@ -44,6 +44,7 @@ class User(db.Model):
     # Связи
     bookings = db.relationship("Booking", back_populates="user", lazy="dynamic")
     reviews  = db.relationship("Review",  back_populates="user", lazy="dynamic")
+    favorites = db.relationship("Favorite", back_populates="user", lazy="dynamic", cascade="all, delete-orphan")
 
     def to_dict(self) -> dict:
         """Сериализует в словарь. Пароль никогда не включаем в ответ API."""

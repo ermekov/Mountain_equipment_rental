@@ -1,22 +1,3 @@
-"""
-app/routes/bookings.py — Маршруты бронирований
-
-Blueprint: bookings_bp → префикс /api/bookings
-
-Маршруты:
-    POST   /api/bookings       — создать бронирование
-    GET    /api/bookings/my    — список моих бронирований
-    GET    /api/bookings/<id>  — получить бронирование по ID
-    DELETE /api/bookings/<id>  — отменить бронирование
-
-Логика создания бронирования:
-    1. Проверяем валидность дат
-    2. Проверяем наличие снаряжения
-    3. Рассчитываем итоговую стоимость
-    4. Создаём Booking + BookingItem записи
-    5. Если оплата наличными → сразу confirmed
-"""
-
 from datetime import datetime, date
 from flask import Blueprint, request, jsonify, g
 
@@ -31,27 +12,6 @@ bookings_bp = Blueprint("bookings", __name__)
 @bookings_bp.route("", methods=["POST"])
 @optional_auth
 def create_booking():
-    """
-    Создаёт новое бронирование.
-
-    Поддерживает два режима:
-    1. Авторизованный пользователь (g.user задан через @optional_auth)
-    2. Гостевое бронирование (передаём phone + name в теле)
-
-    Body: {
-        "items": [
-            {"equipment_id": 1, "quantity": 1, "size": "160"}
-        ],
-        "start_date":      "2025-02-01",
-        "end_date":        "2025-02-03",
-        "payment_method":  "kaspi",     // kaspi | card | cash
-        "with_insurance":  true,        // +1500₸/день
-        "name":            "Айдос",     // для гостей
-        "phone":           "+77071234567" // для гостей
-    }
-
-    Response: объект бронирования со статусом "pending" (или "confirmed" для cash)
-    """
     data = request.get_json() or {}
 
     # Проверяем обязательные поля
@@ -60,7 +20,6 @@ def create_booking():
         if not data.get(field):
             return jsonify({"error": f"Поле '{field}' обязательно"}), 400
 
-    # Парсим и валидируем даты
     try:
         start_date = date.fromisoformat(data["start_date"])
         end_date   = date.fromisoformat(data["end_date"])

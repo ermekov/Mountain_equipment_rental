@@ -17,8 +17,8 @@ from datetime import date
 from flask import Blueprint, request, jsonify, g
 
 from ..extensions import db
-from ..models import Equipment, Category
-from ..utils.auth import admin_required
+from ..models import Equipment, Category, Favorite
+from ..utils.auth import admin_required, login_required
 
 equipment_bp = Blueprint("equipment", __name__)
 
@@ -46,6 +46,47 @@ def get_featured():
         .all()
     )
     return jsonify([i.to_dict() for i in items]), 200
+
+
+@equipment_bp.route("/favorites", methods=["GET"])
+@login_required
+def get_favorites():
+    items = (
+        Equipment.query
+        .join(Favorite, Favorite.equipment_id == Equipment.id)
+        .filter(Favorite.user_id == g.user.id, Equipment.is_active.is_(True))
+        .order_by(Favorite.created_at.desc())
+        .all()
+    )
+    return jsonify([item.to_dict() for item in items]), 200
+
+
+@equipment_bp.route("/<int:eq_id>/favorite", methods=["POST"])
+@login_required
+def add_favorite(eq_id):
+    item = Equipment.query.filter_by(id=eq_id, is_active=True).first()
+    if not item:
+        return jsonify({"error": "Снаряжение не найдено"}), 404
+
+    existing = Favorite.query.filter_by(user_id=g.user.id, equipment_id=eq_id).first()
+    if existing:
+        return jsonify({"message": "Already in favorites"}), 200
+
+    db.session.add(Favorite(user_id=g.user.id, equipment_id=eq_id))
+    db.session.commit()
+    return jsonify({"message": "Added to favorites"}), 201
+
+
+@equipment_bp.route("/<int:eq_id>/favorite", methods=["DELETE"])
+@login_required
+def remove_favorite(eq_id):
+    favorite = Favorite.query.filter_by(user_id=g.user.id, equipment_id=eq_id).first()
+    if not favorite:
+        return jsonify({"message": "Favorite not found"}), 200
+
+    db.session.delete(favorite)
+    db.session.commit()
+    return jsonify({"message": "Removed from favorites"}), 200
 
 
 @equipment_bp.route("", methods=["GET"])

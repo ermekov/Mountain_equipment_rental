@@ -1,66 +1,94 @@
 "use client";
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { Package, LogOut, CheckCircle2, Clock, XCircle } from "lucide-react";
-import { toast } from "sonner";
-import { cn, formatPrice, formatDate } from "@/lib/utils";
-import { useAuthStore } from "@/lib/stores";
-import { bookingAPI } from "@/lib/api/client";
-import { Navbar } from "@/components/layout/navbar";
-import type { Locale, Booking } from "@/lib/types";
 
-type TimelineStep = {
-  key: string;
-  label: string;
-  active: boolean;
-  muted?: boolean;
-};
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  CheckCircle2,
+  Clock,
+  Heart,
+  LogOut,
+  Package,
+  XCircle,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { Navbar } from "@/components/layout/navbar";
+import { bookingAPI, favoriteAPI } from "@/lib/api/client";
+import { useAuthStore } from "@/lib/stores";
+import type { Booking, Equipment, Locale } from "@/lib/types";
+import { cn, formatDate, formatPrice } from "@/lib/utils";
+
+type TabKey = "active" | "history" | "favorites";
+type TimelineStep = { key: string; label: string; active: boolean; muted?: boolean };
 
 export default function ProfilePage({ params }: { params: { locale: string } }) {
-  const l      = params.locale as Locale;
+  const l = params.locale as Locale;
   const router = useRouter();
-  const user   = useAuthStore((s) => s.user);
+  const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.clearAuth);
 
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [tab,      setTab]      = useState<"active" | "history">("active");
+  const [favorites, setFavorites] = useState<Equipment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<TabKey>("active");
 
   useEffect(() => {
-    if (!user) { router.push(`/${l}/auth`); return; }
-    bookingAPI.list()
-      .then((r) => setBookings(r.data))
+    if (!user) {
+      router.push(`/${l}/auth`);
+      return;
+    }
+
+    Promise.all([bookingAPI.list(), favoriteAPI.list()])
+      .then(([bookingsRes, favoritesRes]) => {
+        setBookings(bookingsRes.data);
+        setFavorites(favoritesRes.data);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [user, l, router]);
 
-  if (!user) return null;
-
-  const active  = bookings.filter((b) => ["confirmed", "pending"].includes(b.status));
-  const history = bookings.filter((b) => ["completed", "cancelled"].includes(b.status));
-  const shown   = tab === "active" ? active : history;
-  const spent   = bookings.filter((b) => b.status === "completed")
-                          .reduce((s, b) => s + b.total_price, 0);
-
-  const cancel = async (id: number) => {
-    if (!confirm(l === "ru" ? "Отменить бронирование?" : l === "kk" ? "Броньды тоқтатасыз ба?" : "Cancel booking?")) return;
-    try {
-      await bookingAPI.cancel(id);
-      setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "cancelled" as any } : b));
-      toast.success(l === "ru" ? "Отменено" : l === "kk" ? "Тоқтатылды" : "Cancelled");
-    } catch {
-      toast.error("Ошибка");
-    }
+  const dictionary = {
+    logout: l === "ru" ? "Выйти" : l === "kk" ? "Шығу" : "Logout",
+    total: l === "ru" ? "Всего" : l === "kk" ? "Барлығы" : "Total",
+    active: l === "ru" ? "Активные" : l === "kk" ? "Белсенді" : "Active",
+    history: l === "ru" ? "История" : l === "kk" ? "Тарих" : "History",
+    favorites: l === "ru" ? "Избранное" : l === "kk" ? "Таңдаулы" : "Favorites",
+    spent: l === "ru" ? "Потрачено" : l === "kk" ? "Жұмсалды" : "Spent",
+    noBookings: l === "ru" ? "Нет бронирований" : l === "kk" ? "Броньдар жоқ" : "No bookings",
+    noFavorites: l === "ru" ? "Нет избранного" : l === "kk" ? "Таңдаулы жоқ" : "No favorites yet",
+    browseCatalog: l === "ru" ? "В каталог" : l === "kk" ? "Каталогқа өту" : "Browse Catalog",
+    cancel: l === "ru" ? "Отменить" : l === "kk" ? "Тоқтату" : "Cancel",
+    removeFavorite: l === "ru" ? "Убрать" : l === "kk" ? "Өшіру" : "Remove",
+    open: l === "ru" ? "Открыть" : l === "kk" ? "Ашу" : "Open",
+    daysShort: l === "ru" ? "дн." : l === "kk" ? "к." : "d.",
+    confirmCancel: l === "ru" ? "Отменить бронирование?" : l === "kk" ? "Броньды тоқтатасыз ба?" : "Cancel booking?",
+    cancelled: l === "ru" ? "Отменено" : l === "kk" ? "Тоқтатылды" : "Cancelled",
+    removedFavorite: l === "ru" ? "Удалено из избранного" : l === "kk" ? "Таңдаулылардан өшірілді" : "Removed from favorites",
+    favoriteRemoveError: l === "ru" ? "Не удалось удалить из избранного" : l === "kk" ? "Таңдаулылардан өшіру сәтсіз болды" : "Failed to remove favorite",
   };
 
-  const STATUS = {
-    confirmed: { label: "Подтверждено", icon: <CheckCircle2 className="w-3 h-3" />, cls: "bg-green-50 text-green-700"  },
-    pending:   { label: "Ожидает",      icon: <Clock className="w-3 h-3" />,         cls: "bg-amber-50 text-amber-700"  },
-    cancelled: { label: "Отменено",     icon: <XCircle className="w-3 h-3" />,       cls: "bg-red-50 text-red-600"      },
-    completed: { label: "Завершено",    icon: <CheckCircle2 className="w-3 h-3" />,  cls: "bg-slate-100 text-slate-500" },
-  };
+  const activeBookings = useMemo(
+    () => bookings.filter((b) => ["confirmed", "pending"].includes(b.status)),
+    [bookings]
+  );
+  const historyBookings = useMemo(
+    () => bookings.filter((b) => ["completed", "cancelled"].includes(b.status)),
+    [bookings]
+  );
+  const shownBookings = tab === "active" ? activeBookings : historyBookings;
+  const spent = useMemo(
+    () => bookings.filter((b) => b.status === "completed").reduce((sum, b) => sum + b.total_price, 0),
+    [bookings]
+  );
+
+  const statusMeta = {
+    confirmed: { label: l === "ru" ? "Подтверждено" : l === "kk" ? "Расталды" : "Confirmed", icon: <CheckCircle2 className="h-3 w-3" />, cls: "bg-green-50 text-green-700" },
+    pending: { label: l === "ru" ? "Ожидает" : l === "kk" ? "Күтілуде" : "Pending", icon: <Clock className="h-3 w-3" />, cls: "bg-amber-50 text-amber-700" },
+    cancelled: { label: l === "ru" ? "Отменено" : l === "kk" ? "Тоқтатылды" : "Cancelled", icon: <XCircle className="h-3 w-3" />, cls: "bg-red-50 text-red-600" },
+    completed: { label: l === "ru" ? "Завершено" : l === "kk" ? "Аяқталды" : "Completed", icon: <CheckCircle2 className="h-3 w-3" />, cls: "bg-slate-100 text-slate-500" },
+  } as const;
 
   const buildTimeline = (booking: Booking): TimelineStep[] => {
     const labels = {
@@ -84,91 +112,180 @@ export default function ProfilePage({ params }: { params: { locale: string } }) 
     ];
   };
 
+  const cancelBooking = async (id: number) => {
+    if (!confirm(dictionary.confirmCancel)) return;
+
+    try {
+      await bookingAPI.cancel(id);
+      setBookings((prev) => prev.map((item) => (item.id === id ? { ...item, status: "cancelled" } : item)));
+      toast.success(dictionary.cancelled);
+    } catch {
+      toast.error("Ошибка");
+    }
+  };
+
+  const removeFavorite = async (equipmentId: number) => {
+    try {
+      await favoriteAPI.remove(equipmentId);
+      setFavorites((prev) => prev.filter((item) => item.id !== equipmentId));
+      toast.success(dictionary.removedFavorite);
+    } catch {
+      toast.error(dictionary.favoriteRemoveError);
+    }
+  };
+
+  if (!user) return null;
+
   return (
     <>
       <Navbar locale={l} />
       <div className="min-h-screen bg-surface py-8">
-        <div className="container-page max-w-2xl">
-          {/* Карточка профиля */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 mb-5">
+        <div className="container-page max-w-4xl">
+          <div className="mb-5 rounded-3xl border border-slate-200 bg-white p-5">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-navy flex items-center justify-center flex-shrink-0">
-                <span className="font-display font-extrabold text-xl text-ice">
+              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-navy">
+                <span className="font-display text-xl font-extrabold text-ice">
                   {user.name.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div className="flex-1">
-                <h1 className="font-display font-extrabold text-xl text-navy">{user.name}</h1>
-                <p className="text-slate-500 text-sm">{user.phone}</p>
+                <h1 className="font-display text-xl font-extrabold text-navy">{user.name}</h1>
+                <p className="text-sm text-slate-500">{user.phone}</p>
               </div>
               <button
-                onClick={() => { logout(); router.push(`/${l}`); }}
-                className="flex items-center gap-1.5 text-red-500 hover:bg-red-50 text-sm px-3 py-2 rounded-lg transition-colors"
+                onClick={() => {
+                  logout();
+                  router.push(`/${l}`);
+                }}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-red-500 transition-colors hover:bg-red-50"
               >
-                <LogOut className="w-4 h-4" />
-                {l === "ru" ? "Выйти" : l === "kk" ? "Шығу" : "Logout"}
+                <LogOut className="h-4 w-4" />
+                {dictionary.logout}
               </button>
             </div>
-            {/* Статистика */}
-            <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-100 text-center">
+
+            <div className="mt-4 grid grid-cols-3 gap-3 border-t border-slate-100 pt-4 text-center">
               {[
-                { v: bookings.length,       lbl: l === "ru" ? "Всего"    : l === "kk" ? "Барлығы" : "Total"  },
-                { v: active.length,          lbl: l === "ru" ? "Активных" : l === "kk" ? "Белсенді" : "Active" },
-                { v: formatPrice(spent), lbl: l === "ru" ? "Потрачено" : l === "kk" ? "Жұмсалды" : "Spent"  },
-              ].map((s, i) => (
-                <div key={i}>
-                  <div className="font-display font-extrabold text-lg text-navy">{s.v}</div>
-                  <div className="text-xs text-slate-500">{s.lbl}</div>
+                { value: bookings.length, label: dictionary.total },
+                { value: activeBookings.length, label: dictionary.active },
+                { value: formatPrice(spent), label: dictionary.spent },
+              ].map((stat) => (
+                <div key={stat.label}>
+                  <div className="font-display text-lg font-extrabold text-navy">{stat.value}</div>
+                  <div className="text-xs text-slate-500">{stat.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Вкладки */}
-          <div className="flex gap-1 bg-slate-100 rounded-2xl p-1 mb-4">
-            {(["active", "history"] as const).map((t) => (
+          <div className="mb-4 flex gap-1 rounded-2xl bg-slate-100 p-1">
+            {([
+              { key: "active" as const, label: `${dictionary.active} (${activeBookings.length})` },
+              { key: "history" as const, label: `${dictionary.history} (${historyBookings.length})` },
+              { key: "favorites" as const, label: `${dictionary.favorites} (${favorites.length})` },
+            ]).map((item) => (
               <button
-                key={t}
-                onClick={() => setTab(t)}
+                key={item.key}
+                onClick={() => setTab(item.key)}
                 className={cn(
-                  "flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all",
-                  tab === t ? "bg-white text-navy shadow-sm" : "text-slate-500 hover:text-navy",
+                  "flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all",
+                  tab === item.key ? "bg-white text-navy shadow-sm" : "text-slate-500 hover:text-navy"
                 )}
               >
-                {t === "active"
-                  ? (l === "ru" ? `Активные (${active.length})` : l === "kk" ? `Белсенді (${active.length})` : `Active (${active.length})`)
-                  : (l === "ru" ? `История (${history.length})` : l === "kk" ? `Тарих (${history.length})` : `History (${history.length})`)}
+                {item.label}
               </button>
             ))}
           </div>
 
-          {/* Список бронирований */}
           {loading ? (
             <div className="space-y-3">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="bg-white rounded-2xl border border-slate-200 h-20 animate-pulse" />
+                <div key={i} className="h-24 animate-pulse rounded-2xl border border-slate-200 bg-white" />
               ))}
             </div>
-          ) : shown.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-3xl border border-slate-200">
-              <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-              <h2 className="font-display font-bold text-navy mb-2">
-                {l === "ru" ? "Нет бронирований" : l === "kk" ? "Броньдар жоқ" : "No bookings"}
-              </h2>
+          ) : tab === "favorites" ? (
+            favorites.length === 0 ? (
+              <div className="rounded-3xl border border-slate-200 bg-white py-16 text-center">
+                <Heart className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                <h2 className="mb-2 font-display text-lg font-bold text-navy">{dictionary.noFavorites}</h2>
+                <Link href={`/${l}/catalog`} className="btn-primary mt-3 inline-flex">
+                  {dictionary.browseCatalog}
+                </Link>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {favorites.map((item) => {
+                  const itemName = l === "kk" ? item.name_kk : l === "en" ? item.name_en : item.name_ru;
+                  const categoryName =
+                    l === "kk" ? item.category?.name_kk : l === "en" ? item.category?.name_en : item.category?.name_ru;
+
+                  return (
+                    <div key={item.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                      <Link href={`/${l}/equipment/${item.slug}`} className="block">
+                        <div className="relative aspect-[4/3] bg-slate-100">
+                          {item.image_url ? (
+                            <Image
+                              src={item.image_url}
+                              alt={itemName}
+                              fill
+                              sizes="(max-width:768px) 100vw, 320px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-5xl">🎿</div>
+                          )}
+                        </div>
+                      </Link>
+                      <div className="p-4">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-display text-base font-bold text-navy">{itemName}</p>
+                            <p className="mt-1 text-sm text-slate-500">
+                              {item.category?.icon} {categoryName}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFavorite(item.id)}
+                            className="rounded-full bg-rose-50 p-2 text-rose-500 transition-colors hover:bg-rose-100"
+                            aria-label="Remove favorite"
+                          >
+                            <Heart className="h-4 w-4 fill-current" />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-display text-lg font-extrabold text-ice">
+                            {formatPrice(item.price_per_day)}
+                          </span>
+                          <Link href={`/${l}/equipment/${item.slug}`} className="text-sm font-semibold text-navy hover:text-ice">
+                            {dictionary.open}
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          ) : shownBookings.length === 0 ? (
+            <div className="rounded-3xl border border-slate-200 bg-white py-16 text-center">
+              <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+              <h2 className="mb-2 font-display text-lg font-bold text-navy">{dictionary.noBookings}</h2>
               <Link href={`/${l}/catalog`} className="btn-primary mt-3 inline-flex">
-                {l === "ru" ? "В каталог" : l === "kk" ? "Каталогқа өту" : "Browse Catalog"}
+                {dictionary.browseCatalog}
               </Link>
             </div>
           ) : (
             <div className="space-y-3">
-              {shown.map((b) => {
-                const st       = STATUS[b.status as keyof typeof STATUS] ?? STATUS.pending;
-                const firstItem = b.items?.[0];
+              {shownBookings.map((booking) => {
+                const firstItem = booking.items?.[0];
+                const status = statusMeta[booking.status as keyof typeof statusMeta] ?? statusMeta.pending;
+
                 return (
-                  <div key={b.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                    <div className="flex gap-3 p-4 items-start">
+                  <div key={booking.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                    <div className="flex items-start gap-3 p-4">
                       {firstItem?.equipment_image && (
-                        <div className="relative w-14 h-12 rounded-xl overflow-hidden flex-shrink-0">
+                        <div className="relative h-12 w-14 flex-shrink-0 overflow-hidden rounded-xl">
                           <Image
                             src={firstItem.equipment_image}
                             alt={firstItem.equipment_name}
@@ -178,68 +295,50 @@ export default function ProfilePage({ params }: { params: { locale: string } }) 
                           />
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-display font-bold text-sm text-navy truncate">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-sm font-bold text-navy">
                           {firstItem?.equipment_name ?? "—"}
-                          {b.items.length > 1 ? ` +${b.items.length - 1}` : ""}
+                          {booking.items.length > 1 ? ` +${booking.items.length - 1}` : ""}
                         </p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {formatDate(b.start_date)} – {formatDate(b.end_date)} · {b.days} {l === "ru" ? "дн." : l === "kk" ? "к." : "d."}
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {formatDate(booking.start_date)} – {formatDate(booking.end_date)} · {booking.days} {dictionary.daysShort}
                         </p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className={cn(
-                            "inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full",
-                            st.cls,
-                          )}>
-                            {st.icon}
-                            {st.label}
+
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold", status.cls)}>
+                            {status.icon}
+                            {status.label}
                           </span>
-                          {b.status === "confirmed" && (
-                            <button
-                              onClick={() => cancel(b.id)}
-                              className="text-xs text-red-500 hover:underline"
-                            >
-                              {l === "ru" ? "Отменить" : l === "kk" ? "Тоқтату" : "Cancel"}
+                          {booking.status === "confirmed" && (
+                            <button onClick={() => cancelBooking(booking.id)} className="text-xs text-red-500 hover:underline">
+                              {dictionary.cancel}
                             </button>
                           )}
                         </div>
-                        <div className="mt-3">
-                          <div className="flex items-center gap-2">
-                            {buildTimeline(b).map((step, index, timeline) => (
-                              <div key={step.key} className="flex items-center gap-2 flex-1 min-w-0">
-                                <div
-                                  className={cn(
-                                    "w-2.5 h-2.5 rounded-full flex-shrink-0",
-                                    step.active ? "bg-ice" : "bg-slate-200",
-                                  )}
-                                />
-                                <span
-                                  className={cn(
-                                    "text-[11px] leading-none truncate",
-                                    step.active ? "text-navy font-semibold" : "text-slate-400",
-                                    step.muted && "text-slate-300",
-                                  )}
-                                >
-                                  {step.label}
-                                </span>
-                                {index < timeline.length - 1 && (
-                                  <div
-                                    className={cn(
-                                      "h-px flex-1 min-w-3",
-                                      step.active && timeline[index + 1]?.active ? "bg-ice/60" : "bg-slate-200",
-                                    )}
-                                  />
+
+                        <div className="mt-3 flex items-center gap-2">
+                          {buildTimeline(booking).map((step, index, timeline) => (
+                            <div key={step.key} className="flex min-w-0 flex-1 items-center gap-2">
+                              <div className={cn("h-2.5 w-2.5 flex-shrink-0 rounded-full", step.active ? "bg-ice" : "bg-slate-200")} />
+                              <span
+                                className={cn(
+                                  "truncate text-[11px] leading-none",
+                                  step.active ? "font-semibold text-navy" : "text-slate-400",
+                                  step.muted && "text-slate-300"
                                 )}
-                              </div>
-                            ))}
-                          </div>
+                              >
+                                {step.label}
+                              </span>
+                              {index < timeline.length - 1 && (
+                                <div className={cn("h-px min-w-3 flex-1", step.active && timeline[index + 1]?.active ? "bg-ice/60" : "bg-slate-200")} />
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <span className="font-display font-bold text-ice text-base">
-                          {formatPrice(b.total_price)}
-                        </span>
-                        <p className="font-mono text-xs text-slate-400">#{b.id}</p>
+                      <div className="flex-shrink-0 text-right">
+                        <span className="font-display text-base font-bold text-ice">{formatPrice(booking.total_price)}</span>
+                        <p className="font-mono text-xs text-slate-400">#{booking.id}</p>
                       </div>
                     </div>
                   </div>

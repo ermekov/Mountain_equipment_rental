@@ -2,9 +2,10 @@
 const createNextIntlPlugin = require("next-intl/plugin");
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+const isDev = process.env.NODE_ENV === "development";
 
 const nextConfig = {
-  distDir: "build-artifacts",
+  distDir: isDev ? "dev-artifacts" : "prod-artifacts",
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },

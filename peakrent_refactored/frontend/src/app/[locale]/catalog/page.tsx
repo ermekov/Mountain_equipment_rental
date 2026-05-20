@@ -60,6 +60,7 @@ export default function CatalogPage({
       : "all"
   );
   const [onlyInStock, setOnlyInStock] = useState(searchParams.in_stock === "1");
+  const [selectedItem, setSelectedItem] = useState<Equipment | null>(null);
 
   const { data: categories = [] } = useCategories();
 
@@ -207,6 +208,8 @@ export default function CatalogPage({
     reviews: locale === "kk" ? "пікір" : locale === "en" ? "reviews" : "отзывов",
     rentNow: locale === "kk" ? "Жалға алу" : locale === "en" ? "Rent now" : "Арендовать",
     moreDetails: locale === "kk" ? "Толығырақ" : locale === "en" ? "Details" : "Подробнее",
+    quickView: locale === "kk" ? "Жылдам қарау" : locale === "en" ? "Quick view" : "Быстрый просмотр",
+    close: locale === "kk" ? "Жабу" : locale === "en" ? "Close" : "Закрыть",
     noImage: locale === "kk" ? "Сурет жоқ" : locale === "en" ? "No image" : "Нет фото",
     tagBeginner: locale === "kk" ? "Жаңадан бастаушыға" : locale === "en" ? "Beginner" : "Для новичков",
     tagWaterproof: locale === "kk" ? "Су өтпейді" : locale === "en" ? "Waterproof" : "Непромокаемое",
@@ -216,6 +219,8 @@ export default function CatalogPage({
     collection: locale === "kk" ? "PeakRent Collection" : locale === "en" ? "PeakRent Collection" : "PeakRent Collection",
     quickLabel: locale === "kk" ? "Жылдам сүзу" : locale === "en" ? "Quick filter" : "Быстрый фильтр",
     curated: locale === "kk" ? "Таңдалған жабдық" : locale === "en" ? "Curated gear" : "Подобранное снаряжение",
+    sizes: locale === "kk" ? "Өлшемдер" : locale === "en" ? "Sizes" : "Размеры",
+    availableNow: locale === "kk" ? "Қазір қолжетімді" : locale === "en" ? "Available now" : "Доступно сейчас",
   };
 
   const selectedCategory = category ? categories.find((item) => item.slug === category) : null;
@@ -296,6 +301,18 @@ export default function CatalogPage({
     setMaxPrice(50000);
     setOnlyInStock(false);
   };
+
+  const selectedName = selectedItem ? equipmentName(selectedItem) : "";
+  const selectedDescription = selectedItem
+    ? locale === "kk"
+      ? selectedItem.description_kk
+      : locale === "en"
+      ? selectedItem.description_en
+      : selectedItem.description_ru
+    : "";
+  const selectedCategoryName = selectedItem?.category
+    ? categoryName(selectedItem.category)
+    : "";
 
   return (
     <>
@@ -530,9 +547,8 @@ export default function CatalogPage({
                       .slice(0, 2);
 
                     return (
-                      <Link
+                      <article
                         key={item.id}
-                        href={`/${locale}/equipment/${item.slug}`}
                         className="group flex h-full flex-col overflow-hidden rounded-[2rem] border border-slate-200/90 bg-white shadow-[0_25px_65px_rgba(15,23,42,0.07)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_30px_80px_rgba(14,165,233,0.18)]"
                       >
                         <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
@@ -602,9 +618,14 @@ export default function CatalogPage({
                               </div>
 
                               <div className="absolute inset-x-0 bottom-0 h-14 rounded-[1.4rem] bg-[linear-gradient(90deg,rgba(255,255,255,0.08),rgba(255,255,255,0.18),rgba(255,255,255,0.08))] opacity-70 blur-xl" />
-                              <span className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-navy shadow-[0_15px_35px_rgba(15,23,42,0.24)] transition-transform duration-300 group-hover:translate-x-1 group-hover:scale-105">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedItem(item)}
+                                className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-navy shadow-[0_15px_35px_rgba(15,23,42,0.24)] transition-transform duration-300 group-hover:translate-x-1 group-hover:scale-105"
+                                aria-label={dictionary.quickView}
+                              >
                                 <ArrowRight className="h-4 w-4" />
-                              </span>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -642,8 +663,25 @@ export default function CatalogPage({
                               </div>
                             </div>
                           </div>
+
+                          <div className="mt-4 grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedItem(item)}
+                              className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2.5 text-sm font-semibold text-navy transition hover:border-ice hover:text-ice"
+                            >
+                              {dictionary.quickView}
+                            </button>
+                            <Link
+                              href={`/${locale}/equipment/${item.slug}`}
+                              className="inline-flex items-center justify-center gap-2 rounded-full bg-navy px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-light"
+                            >
+                              {dictionary.moreDetails}
+                              <ArrowRight className="h-4 w-4" />
+                            </Link>
+                          </div>
                         </div>
-                      </Link>
+                      </article>
                     );
                   })}
                 </div>
@@ -652,6 +690,165 @@ export default function CatalogPage({
           </div>
         </div>
       </div>
+
+      {selectedItem && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-navy/55 px-4 py-4 backdrop-blur-sm sm:py-8">
+          <div
+            className="absolute inset-0"
+            onClick={() => setSelectedItem(null)}
+            aria-hidden="true"
+          />
+          <div className="relative z-10 w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/60 bg-white shadow-[0_35px_120px_rgba(15,23,42,0.35)] max-h-[92vh]">
+            <button
+              type="button"
+              onClick={() => setSelectedItem(null)}
+              className="absolute right-4 top-4 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:text-navy"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="grid max-h-[92vh] gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+              <div className="relative hidden min-h-[280px] bg-slate-100 lg:block">
+                {selectedItem.image_url ? (
+                  <Image
+                    src={selectedItem.image_url}
+                    alt={selectedName}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full min-h-[280px] items-center justify-center text-sm font-semibold text-slate-400">
+                    {dictionary.noImage}
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,22,40,0.04)_0%,rgba(10,22,40,0.36)_100%)]" />
+                <div className="absolute left-5 top-5 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/92 px-3 py-1 text-[11px] font-bold text-navy shadow-sm">
+                    {selectedItem.category?.icon} {selectedCategoryName}
+                  </span>
+                  {getGenderBadge(selectedItem) && (
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold shadow-sm",
+                        getGenderBadge(selectedItem)?.className
+                      )}
+                    >
+                      <span>{getGenderBadge(selectedItem)?.icon}</span>
+                      {getGenderBadge(selectedItem)?.label}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex max-h-[92vh] flex-col overflow-y-auto p-6 sm:p-8">
+                <div className="relative mb-5 aspect-[4/3] overflow-hidden rounded-[1.5rem] bg-slate-100 lg:hidden">
+                  {selectedItem.image_url ? (
+                    <Image
+                      src={selectedItem.image_url}
+                      alt={selectedName}
+                      fill
+                      sizes="100vw"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm font-semibold text-slate-400">
+                      {dictionary.noImage}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                      PeakRent Gear
+                    </p>
+                    <h3 className="mt-3 text-2xl font-black tracking-[-0.03em] text-navy font-display sm:text-3xl">
+                      {selectedName}
+                    </h3>
+                  </div>
+                  {selectedItem.avg_rating ? (
+                    <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-600">
+                      <Star className="h-4 w-4 fill-current text-amber-400" />
+                      {selectedItem.avg_rating.toFixed(1)}
+                    </div>
+                  ) : null}
+                </div>
+
+                <p className="mt-5 text-sm leading-7 text-slate-600">
+                  {selectedDescription || dictionary.curated}
+                </p>
+
+                {!!selectedItem.tags?.length && (
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {selectedItem.tags.slice(0, 5).map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-ice-pale px-3 py-1 text-xs font-semibold text-ice-dark"
+                      >
+                        {HIGHLIGHT_TAGS.includes(tag) ? getHighlightLabel(tag) : tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {!!selectedItem.sizes?.length && (
+                  <div className="mt-6 rounded-3xl bg-slate-50 p-4">
+                    <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                      {dictionary.sizes}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedItem.sizes.slice(0, 6).map((size) => (
+                        <span
+                          key={size.value}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-navy"
+                        >
+                          {size.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-6 flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                      {dictionary.availableNow}
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-navy">
+                      {selectedItem.stock > 0
+                        ? `${selectedItem.stock} ${dictionary.available}`
+                        : dictionary.out}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-black text-navy">{formatPrice(selectedItem.price_per_day)}</div>
+                    <div className="text-xs text-slate-400">/ {dictionary.day}</div>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItem(null)}
+                    className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-navy"
+                  >
+                    {dictionary.close}
+                  </button>
+                  <Link
+                    href={`/${locale}/equipment/${selectedItem.slug}`}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-ice px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(14,165,233,0.24)] transition hover:bg-ice-dark"
+                  >
+                    {dictionary.rentNow}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

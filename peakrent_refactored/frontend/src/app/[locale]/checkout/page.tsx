@@ -53,6 +53,19 @@ function CheckoutInner({ locale }: { locale: Locale }) {
   }, [user]);
 
   useEffect(() => {
+    if (!user) {
+      toast.error(
+        l === "ru"
+          ? "Для оформления заказа нужно войти в аккаунт"
+          : l === "kk"
+          ? "Тапсырыс рәсімдеу үшін аккаунтқа кіру керек"
+          : "Please sign in to continue"
+      );
+      router.replace(`/${l}/auth`);
+    }
+  }, [user, router, l]);
+
+  useEffect(() => {
     setCurrentBookingId(bookingId);
   }, [bookingId]);
 
@@ -85,6 +98,17 @@ function CheckoutInner({ locale }: { locale: Locale }) {
   }, [payStatus, payId, currentBookingId, clearCart, router, l]);
 
   const handlePay = useCallback(async () => {
+    if (!user) {
+      toast.error(
+        l === "ru"
+          ? "Для оплаты нужно войти в аккаунт"
+          : l === "kk"
+          ? "Төлеу үшін аккаунтқа кіру керек"
+          : "Please sign in to pay"
+      );
+      router.replace(`/${l}/auth`);
+      return;
+    }
     if (!name.trim()) { toast.error("Введите имя"); return; }
     if (phone.replace(/\D/g, "").length < 11) { toast.error("Введите корректный номер"); return; }
     setLoad(true);
@@ -141,7 +165,7 @@ function CheckoutInner({ locale }: { locale: Locale }) {
     } finally {
       setLoad(false);
     }
-  }, [name, phone, payMethod, currentBookingId, cartItems, cartStartDate, cartEndDate, l]);
+  }, [name, phone, payMethod, currentBookingId, cartItems, cartStartDate, cartEndDate, l, router, user]);
 
   const steps = [
     l === "ru" ? "Подтверждение" : l === "kk" ? "Растау" : "Confirm",

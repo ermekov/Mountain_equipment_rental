@@ -476,9 +476,9 @@ const SECTION_LABELS = {
     en: "Start booking",
   },
   footerText: {
-    ru: "Аренда горного снаряжения в Алматы с AI-подбором, Kaspi QR и быстрой выдачей.",
-    kk: "Алматыда AI-таңдау, Kaspi QR және жылдам берумен тау жабдықтарын жалға беру.",
-    en: "Mountain gear rental in Almaty with AI guidance, Kaspi QR and fast pickup.",
+    ru: "Прокат горного и туристического снаряжения с AI-подбором, онлайн-бронированием и оплатой через Kaspi QR.",
+    kk: "AI-таңдау, онлайн брондау және Kaspi QR төлемімен тау және туристік жабдықтарды жалға беру.",
+    en: "Mountain and outdoor gear rental with AI guidance, online booking and Kaspi QR payments.",
   },
   footerEquipment: {
     ru: "Снаряжение",
@@ -500,10 +500,30 @@ const SECTION_LABELS = {
     kk: "AI ұсынысы",
     en: "AI picks",
   },
+  footerCatalog: {
+    ru: "Каталог",
+    kk: "Каталог",
+    en: "Catalog",
+  },
+  footerHow: {
+    ru: "Как это работает",
+    kk: "Бұл қалай жұмыс істейді",
+    en: "How it works",
+  },
   footerAuth: {
     ru: "Войти",
     kk: "Кіру",
     en: "Sign in",
+  },
+  footerInstagram: {
+    ru: "Instagram",
+    kk: "Instagram",
+    en: "Instagram",
+  },
+  footerPickup: {
+    ru: "Точка выдачи",
+    kk: "Алу нүктесі",
+    en: "Pickup point",
   },
 };
 
@@ -1566,7 +1586,7 @@ function FooterSection({ locale }: { locale: Locale }) {
   const footerLinks = [
     {
       title: copy(locale, SECTION_LABELS.footerEquipment),
-      links: ACTIVITIES.slice(0, 3).map((activity) => ({
+      links: ACTIVITIES.slice(0, 4).map((activity) => ({
         href: `/${locale}/catalog?category=${activity.slug}`,
         label: locale === "kk" ? activity.kk : locale === "en" ? activity.en : activity.ru,
       })),
@@ -1574,15 +1594,23 @@ function FooterSection({ locale }: { locale: Locale }) {
     {
       title: copy(locale, SECTION_LABELS.footerService),
       links: [
+        { href: `/${locale}/catalog`, label: copy(locale, SECTION_LABELS.footerCatalog) },
+        { href: `/${locale}/#activities`, label: copy(locale, SECTION_LABELS.footerHow) },
         { href: `/${locale}/ai`, label: copy(locale, SECTION_LABELS.footerAi) },
-        { href: `/${locale}/auth`, label: copy(locale, SECTION_LABELS.footerAuth) },
       ],
     },
     {
       title: copy(locale, SECTION_LABELS.footerContacts),
       links: [
-        { href: "tel:+77071234567", label: "+7 (707) 123-45-67" },
-        { href: "mailto:hello@peakrent.kz", label: "hello@peakrent.kz" },
+        { href: "tel:+77089898191", label: "+7 708 989 81 91" },
+        { href: "tel:+77768435825", label: "+7 776 843 58 25" },
+        { href: "tel:+77758877948", label: "+7 775 887 79 48" },
+        { href: "mailto:ermekoverasil04@gmail.ru", label: "ermekoverasil04@gmail.ru" },
+        { href: "https://instagram.com/eeermekov_", label: `${copy(locale, SECTION_LABELS.footerInstagram)} · @eeermekov_` },
+        {
+          href: "https://2gis.kz/almaty/search/7-%D0%B9%20%D0%BC%D0%B8%D0%BA%D1%80%D0%BE%D1%80%D0%B0%D0%B9%D0%BE%D0%BD%2C%2010",
+          label: `${copy(locale, SECTION_LABELS.footerPickup)} · г. Алматы, 7-й микрорайон, 10`,
+        },
       ],
     },
   ];
@@ -1632,7 +1660,7 @@ function FooterSection({ locale }: { locale: Locale }) {
 
         <div className="mt-6 flex flex-col gap-3 text-xs text-white/35 sm:flex-row sm:items-center sm:justify-between">
           <span>© {new Date().getFullYear()} PeakRent.kz</span>
-          <span>Shymbulak · Oi-Qaragai · Almaty Mountains</span>
+          <span>Almaty · 7-й микрорайон, 10 · Instagram @eeermekov</span>
         </div>
       </div>
     </motion.footer>
@@ -1651,9 +1679,9 @@ export default function HomePageClient({
       <main className="bg-white">
         <HeroSection locale={locale} />
         <TickerSection locale={locale} />
-        <ActivitiesSection locale={locale} />
         <AiBannerSection locale={locale} />
         <PopularSection locale={locale} featured={featured} />
+        <ActivitiesSection locale={locale} />
         <HowItWorksSection locale={locale} />
         <ReviewsSection locale={locale} />
         <BrandsSection locale={locale} />

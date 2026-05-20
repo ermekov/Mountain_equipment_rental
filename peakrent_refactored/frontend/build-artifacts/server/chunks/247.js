@@ -1,0 +1,1 @@
+"use strict";exports.id=247,exports.ids=[247],exports.modules={2247:o=>{o.exports=JSON.parse('{"nav":{"catalog":"Catalog","ai":"AI Picks","about":"About","login":"Sign In","profile":"Profile"},"common":{"loading":"Loading...","error":"Error","back":"Back","currency":"₸","per_day":"₸/day"}}')}};

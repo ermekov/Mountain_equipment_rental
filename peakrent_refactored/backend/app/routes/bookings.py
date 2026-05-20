@@ -2,15 +2,15 @@ from datetime import datetime, date
 from flask import Blueprint, request, jsonify, g
 
 from ..extensions import db
-from ..models import User, Equipment, Booking, BookingItem
-from ..utils.auth import login_required, optional_auth
+from ..models import Equipment, Booking, BookingItem
+from ..utils.auth import login_required
 from ..services.email_service import EmailService
 
 bookings_bp = Blueprint("bookings", __name__)
 
 
 @bookings_bp.route("", methods=["POST"])
-@optional_auth
+@login_required
 def create_booking():
     data = request.get_json() or {}
 
@@ -34,20 +34,8 @@ def create_booking():
 
     days = (end_date - start_date).days
 
-    # Определяем пользователя (авторизованный или гостевой)
+    # Бронирование доступно только авторизованным пользователям
     user = g.user
-    if not user:
-        phone = data.get("phone", "").strip()
-        if not phone:
-            return jsonify({"error": "Требуется авторизация или поле 'phone'"}), 401
-
-        # Гостевое бронирование: находим или создаём пользователя
-        user = User.query.filter_by(phone=phone).first()
-        if not user:
-            name = data.get("name", phone[-4:])
-            user = User(phone=phone, name=name)
-            db.session.add(user)
-            db.session.flush()  # Получаем ID без коммита
 
     # Валидируем позиции и рассчитываем стоимость
     total_price = 0

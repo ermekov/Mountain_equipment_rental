@@ -1,0 +1,1 @@
+"use strict";exports.id=99,exports.ids=[99],exports.modules={1099:o=>{o.exports=JSON.parse('{"nav":{"catalog":"Каталог","ai":"AI-подбор","about":"О нас","login":"Войти","profile":"Профиль"},"common":{"loading":"Загрузка...","error":"Ошибка","back":"Назад","currency":"₸","per_day":"₸/день"}}')}};

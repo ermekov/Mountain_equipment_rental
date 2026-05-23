@@ -42,81 +42,82 @@ export const useAuthStore = create<AuthStore>()(
 // -- Cart / Booking Store --
 interface CartStore {
   items:      CartItem[];
-  start_date: string;
-  end_date: string;
-  addItem:    (equipment: Equipment, qty: number, size: string | null, days: number) => void;
-  updateItem: (equipment_id: number, qty: number, size?: string | null) => void;
+  addItem:    (equipment: Equipment, qty: number, size: string | null, start_date: string, end_date: string) => void;
+  updateItem: (equipment_id: number, data: { qty?: number; size?: string | null; start_date?: string; end_date?: string }) => void;
   removeItem: (equipment_id: number) => void;
   clearCart:  () => void;
-  setRentalPeriod: (start_date: string, end_date: string) => void;
   totalPrice: () => number;
 }
 
-const recalcItem = (item: CartItem, days: number) => ({
+const getSafeDays = (start_date: string, end_date: string) =>
+  start_date && end_date ? Math.max(1, daysBetween(start_date, end_date)) : 1;
+
+const recalcItem = (item: CartItem) => {
+  const days = getSafeDays(item.start_date, item.end_date);
+  return {
   ...item,
   days,
   subtotal: item.equipment.price_per_day * item.quantity * days,
-});
+  };
+};
 
 export const useBookingStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
-      start_date: "",
-      end_date: "",
-      addItem: (equipment, qty, size, days) => {
-        const safeDays = Math.max(1, days);
-        const subtotal = equipment.price_per_day * qty * safeDays;
+      addItem: (equipment, qty, size, start_date, end_date) => {
         const idx = get().items.findIndex((i) => i.equipment_id === equipment.id);
         if (idx >= 0) {
           const updated = [...get().items];
-          updated[idx] = { ...updated[idx], quantity: qty, size, days: safeDays, subtotal };
+          updated[idx] = recalcItem({
+            ...updated[idx],
+            quantity: qty,
+            size,
+            start_date,
+            end_date,
+          });
           set({ items: updated });
         } else {
           set({
-            items: [...get().items, { equipment_id: equipment.id, equipment, quantity: qty, size, days: safeDays, subtotal }],
+            items: [
+              ...get().items,
+              recalcItem({
+                equipment_id: equipment.id,
+                equipment,
+                quantity: qty,
+                size,
+                start_date,
+                end_date,
+                days: 1,
+                subtotal: 0,
+              }),
+            ],
           });
         }
       },
-      updateItem: (equipment_id, qty, size) => {
-        const currentDays = get().start_date && get().end_date
-          ? Math.max(1, daysBetween(get().start_date, get().end_date))
-          : undefined;
+      updateItem: (equipment_id, data) => {
         set({
           items: get().items.map((item) =>
             item.equipment_id === equipment_id
-              ? recalcItem(
-                  {
-                    ...item,
-                    quantity: Math.max(1, qty),
-                    size: size === undefined ? item.size : size,
-                  },
-                  currentDays ?? item.days
-                )
+              ? recalcItem({
+                  ...item,
+                  quantity: data.qty === undefined ? item.quantity : Math.max(1, data.qty),
+                  size: data.size === undefined ? item.size : data.size,
+                  start_date: data.start_date ?? item.start_date,
+                  end_date: data.end_date ?? item.end_date,
+                })
               : item
           ),
         });
       },
       removeItem: (equipment_id) =>
         set({ items: get().items.filter((i) => i.equipment_id !== equipment_id) }),
-      clearCart: () => set({ items: [], start_date: "", end_date: "" }),
-      setRentalPeriod: (start_date, end_date) => {
-        const days = start_date && end_date ? Math.max(1, daysBetween(start_date, end_date)) : 1;
-        set({
-          start_date,
-          end_date,
-          items: get().items.map((item) => recalcItem(item, days)),
-        });
-      },
+      clearCart: () => set({ items: [] }),
       totalPrice: () => get().items.reduce((s, i) => s + i.subtotal, 0),
     }),
     {
       name: "peakrent-cart",
-      partialize: (s) => ({
-        items: s.items,
-        start_date: s.start_date,
-        end_date: s.end_date,
-      }),
+      partialize: (s) => ({ items: s.items }),
     }
   )
 );

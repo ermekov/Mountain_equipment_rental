@@ -13,21 +13,20 @@ import { formatPrice } from "@/lib/utils";
 export default function CartPage({ params }: { params: { locale: string } }) {
   const l = params.locale as Locale;
   const items = useBookingStore((s) => s.items);
-  const startDate = useBookingStore((s) => s.start_date);
-  const endDate = useBookingStore((s) => s.end_date);
-  const setRentalPeriod = useBookingStore((s) => s.setRentalPeriod);
   const updateItem = useBookingStore((s) => s.updateItem);
   const removeItem = useBookingStore((s) => s.removeItem);
   const totalPrice = useBookingStore((s) => s.totalPrice());
+
+  const today = new Date().toISOString().split("T")[0];
 
   const t = {
     title: l === "ru" ? "Корзина" : l === "kk" ? "Себет" : "Cart",
     subtitle:
       l === "ru"
-        ? "Проверьте состав заказа и выберите единый период аренды для всех позиций."
+        ? "Проверьте состав заказа и задайте даты аренды для каждой позиции отдельно."
         : l === "kk"
-        ? "Тапсырыс құрамын тексеріп, барлық позицияға ортақ жалдау мерзімін таңдаңыз."
-        : "Review your order and choose one rental period for all items.",
+        ? "Тапсырыс құрамын тексеріп, әр позицияға жеке жалдау күндерін таңдаңыз."
+        : "Review your order and set rental dates for each item.",
     empty: l === "ru" ? "Корзина пока пустая" : l === "kk" ? "Себет әзірге бос" : "Your cart is empty",
     browse: l === "ru" ? "В каталог" : l === "kk" ? "Каталогқа өту" : "Browse catalog",
     dates: l === "ru" ? "Даты аренды" : l === "kk" ? "Жалдау күндері" : "Rental dates",
@@ -36,15 +35,20 @@ export default function CartPage({ params }: { params: { locale: string } }) {
     total: l === "ru" ? "Итого" : l === "kk" ? "Барлығы" : "Total",
     checkout: l === "ru" ? "Перейти к оплате" : l === "kk" ? "Төлемге өту" : "Proceed to checkout",
     day: l === "ru" ? "день" : l === "kk" ? "күн" : "day",
+    start: l === "ru" ? "Начало" : l === "kk" ? "Басталуы" : "Start",
+    end: l === "ru" ? "Конец" : l === "kk" ? "Аяқталуы" : "End",
     selectDates:
       l === "ru"
-        ? "Сначала выберите даты аренды"
+        ? "Укажите корректные даты аренды для каждой позиции"
         : l === "kk"
-        ? "Алдымен жалдау күндерін таңдаңыз"
-        : "Select rental dates first",
+        ? "Әр позиция үшін дұрыс жалдау күндерін таңдаңыз"
+        : "Set valid dates for every item",
   };
 
-  const canCheckout = useMemo(() => items.length > 0 && !!startDate && !!endDate, [items.length, startDate, endDate]);
+  const canCheckout = useMemo(
+    () => items.length > 0 && items.every((item) => !!item.start_date && !!item.end_date && item.days >= 1),
+    [items]
+  );
 
   return (
     <>
@@ -67,63 +71,79 @@ export default function CartPage({ params }: { params: { locale: string } }) {
           ) : (
             <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
               <div className="space-y-4">
-                <div className="rounded-[2rem] border border-slate-200 bg-white p-5">
-                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t.dates}</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <input
-                      type="date"
-                      value={startDate}
-                      min={new Date().toISOString().split("T")[0]}
-                      onChange={(e) => setRentalPeriod(e.target.value, endDate)}
-                      className="input-base"
-                    />
-                    <input
-                      type="date"
-                      value={endDate}
-                      min={startDate || new Date().toISOString().split("T")[0]}
-                      onChange={(e) => setRentalPeriod(startDate, e.target.value)}
-                      className="input-base"
-                    />
-                  </div>
-                </div>
-
                 {items.map((item) => {
                   const name = l === "kk" ? item.equipment.name_kk : l === "en" ? item.equipment.name_en : item.equipment.name_ru;
                   return (
                     <div key={item.equipment_id} className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
-                      <div className="flex gap-4">
-                        <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-100">
-                          {item.equipment.image_url ? (
-                            <Image src={item.equipment.image_url} alt={name} fill sizes="96px" className="object-cover" />
-                          ) : (
-                            <div className="flex h-full items-center justify-center text-4xl">🎿</div>
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-display text-lg font-bold text-navy">{name}</p>
-                              <p className="mt-1 text-sm text-slate-500">
-                                {item.equipment.category?.icon} {l === "kk" ? item.equipment.category?.name_kk : l === "en" ? item.equipment.category?.name_en : item.equipment.category?.name_ru}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeItem(item.equipment_id)}
-                              className="rounded-full bg-red-50 p-2 text-red-500 transition-colors hover:bg-red-100"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                      <div className="flex flex-col gap-4 lg:flex-row">
+                        <div className="flex gap-4">
+                          <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+                            {item.equipment.image_url ? (
+                              <Image src={item.equipment.image_url} alt={name} fill sizes="96px" className="object-cover" />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-4xl">🎿</div>
+                            )}
                           </div>
 
-                          <div className="mt-4 flex flex-wrap items-center gap-4">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-display text-lg font-bold text-navy">{name}</p>
+                                <p className="mt-1 text-sm text-slate-500">
+                                  {item.equipment.category?.icon}{" "}
+                                  {l === "kk"
+                                    ? item.equipment.category?.name_kk
+                                    : l === "en"
+                                    ? item.equipment.category?.name_en
+                                    : item.equipment.category?.name_ru}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeItem(item.equipment_id)}
+                                className="rounded-full bg-red-50 p-2 text-red-500 transition-colors hover:bg-red-100"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{t.start}</p>
+                                <input
+                                  type="date"
+                                  value={item.start_date}
+                                  min={today}
+                                  onChange={(e) => {
+                                    const startDate = e.target.value;
+                                    const nextEnd = !item.end_date || item.end_date <= startDate ? startDate : item.end_date;
+                                    updateItem(item.equipment_id, { start_date: startDate, end_date: nextEnd });
+                                  }}
+                                  className="input-base !py-2.5 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{t.end}</p>
+                                <input
+                                  type="date"
+                                  value={item.end_date}
+                                  min={item.start_date || today}
+                                  onChange={(e) => updateItem(item.equipment_id, { end_date: e.target.value })}
+                                  className="input-base !py-2.5 text-sm"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-1 flex-wrap items-end justify-between gap-4 border-t border-slate-100 pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+                          <div className="flex flex-wrap items-center gap-4">
                             <div>
                               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{t.qty}</p>
                               <div className="mt-1 flex items-center gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => updateItem(item.equipment_id, Math.max(1, item.quantity - 1))}
+                                  onClick={() => updateItem(item.equipment_id, { qty: Math.max(1, item.quantity - 1) })}
                                   className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200"
                                 >
                                   <Minus className="h-4 w-4" />
@@ -131,7 +151,7 @@ export default function CartPage({ params }: { params: { locale: string } }) {
                                 <span className="w-6 text-center font-semibold text-navy">{item.quantity}</span>
                                 <button
                                   type="button"
-                                  onClick={() => updateItem(item.equipment_id, item.quantity + 1)}
+                                  onClick={() => updateItem(item.equipment_id, { qty: item.quantity + 1 })}
                                   className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200"
                                 >
                                   <Plus className="h-4 w-4" />
@@ -151,13 +171,13 @@ export default function CartPage({ params }: { params: { locale: string } }) {
                               <p className="mt-1 text-sm font-semibold text-navy">{item.days}</p>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="text-right">
-                          <p className="font-display text-xl font-extrabold text-ice">{formatPrice(item.subtotal)}</p>
-                          <p className="mt-1 text-xs text-slate-400">
-                            {formatPrice(item.equipment.price_per_day)} / {t.day}
-                          </p>
+                          <div className="text-right">
+                            <p className="font-display text-xl font-extrabold text-ice">{formatPrice(item.subtotal)}</p>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {formatPrice(item.equipment.price_per_day)} / {t.day}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -179,7 +199,11 @@ export default function CartPage({ params }: { params: { locale: string } }) {
 
                 <Link
                   href={`/${l}/checkout`}
-                  className={canCheckout ? "btn-primary mt-5 flex w-full justify-center !py-4" : "mt-5 flex w-full cursor-not-allowed justify-center rounded-2xl bg-slate-200 px-5 py-4 text-sm font-bold text-slate-400"}
+                  className={
+                    canCheckout
+                      ? "btn-primary mt-5 flex w-full justify-center !py-4"
+                      : "mt-5 flex w-full cursor-not-allowed justify-center rounded-2xl bg-slate-200 px-5 py-4 text-sm font-bold text-slate-400"
+                  }
                   aria-disabled={!canCheckout}
                   onClick={(e) => {
                     if (!canCheckout) e.preventDefault();

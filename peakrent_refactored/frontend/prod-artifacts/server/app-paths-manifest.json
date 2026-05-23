@@ -1,14 +1,15 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/[locale]/auth/page": "app/[locale]/auth/page.js",
-  "/[locale]/admin/page": "app/[locale]/admin/page.js",
+  "/page": "app/page.js",
   "/[locale]/ai/page": "app/[locale]/ai/page.js",
-  "/[locale]/cart/page": "app/[locale]/cart/page.js",
   "/[locale]/catalog/page": "app/[locale]/catalog/page.js",
   "/[locale]/booking/[id]/success/page": "app/[locale]/booking/[id]/success/page.js",
+  "/[locale]/cart/page": "app/[locale]/cart/page.js",
   "/[locale]/equipment/[slug]/page": "app/[locale]/equipment/[slug]/page.js",
-  "/[locale]/checkout/page": "app/[locale]/checkout/page.js",
+  "/[locale]/admin/page": "app/[locale]/admin/page.js",
+  "/[locale]/auth/page": "app/[locale]/auth/page.js",
   "/[locale]/manager/page": "app/[locale]/manager/page.js",
+  "/[locale]/checkout/page": "app/[locale]/checkout/page.js",
   "/[locale]/profile/page": "app/[locale]/profile/page.js",
   "/[locale]/page": "app/[locale]/page.js"
 }

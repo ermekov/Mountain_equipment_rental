@@ -23,7 +23,6 @@ export default function EquipmentPage({
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const addToCart = useBookingStore((s) => s.addItem);
-  const setRentalPeriod = useBookingStore((s) => s.setRentalPeriod);
 
   const [eq,       setEq]       = useState<Equipment | null>(null);
   const [reviews,  setReviews]  = useState<Review[]>([]);
@@ -155,10 +154,9 @@ export default function EquipmentPage({
     if (days < 1) { toast.error("Минимум 1 день"); return; }
     if (eq.size_type !== "none" && !size) { toast.error("Выберите размер"); return; }
 
-    setRentalPeriod(start, end);
-    addToCart(eq, qty, size || null, days);
+    addToCart(eq, qty, size || null, start, end);
     toast.success(l === "ru" ? "Добавлено в корзину" : l === "kk" ? "Себетке қосылды" : "Added to cart");
-  }, [eq, start, end, days, qty, size, l, addToCart, setRentalPeriod]);
+  }, [eq, start, end, days, qty, size, l, addToCart]);
 
   const handleReviewSubmit = useCallback(async () => {
     if (!eq) return;

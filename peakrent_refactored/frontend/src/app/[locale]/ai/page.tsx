@@ -31,6 +31,17 @@ const ACTIVITIES = [
 
 const CITIES = ["Алматы", "Астана", "Шымкент", "Бишкек"];
 
+const getDefaultRentalDates = () => {
+  const start = new Date();
+  const end = new Date();
+  end.setDate(end.getDate() + 1);
+
+  return {
+    start_date: start.toISOString().split("T")[0],
+    end_date: end.toISOString().split("T")[0],
+  };
+};
+
 export default function AIPage({ params }: { params: { locale: string } }) {
   const locale = params.locale as Locale;
   const addToCart = useBookingStore((state) => state.addItem);
@@ -41,6 +52,7 @@ export default function AIPage({ params }: { params: { locale: string } }) {
   const [level, setLevel] = useState("beginner");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<RecommendationResponse | null>(null);
+  const defaultDates = getDefaultRentalDates();
 
   const t = {
     badge:
@@ -298,7 +310,9 @@ export default function AIPage({ params }: { params: { locale: string } }) {
                 <button
                   type="button"
                   onClick={() => {
-                    result.items.forEach((item) => addToCart(item as any, 1, null, 1));
+                    result.items.forEach((item) =>
+                      addToCart(item as any, 1, null, defaultDates.start_date, defaultDates.end_date)
+                    );
                     toast.success(`${t.addAll}: ${result.items.length}`);
                   }}
                   className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-navy shadow-sm transition hover:border-ice hover:text-ice"
@@ -376,7 +390,7 @@ export default function AIPage({ params }: { params: { locale: string } }) {
                         <button
                           type="button"
                           onClick={() => {
-                            addToCart(item as any, 1, null, 1);
+                            addToCart(item as any, 1, null, defaultDates.start_date, defaultDates.end_date);
                             toast.success(`${itemName(item)} ${t.added}`);
                           }}
                           className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-ice-pale text-ice transition hover:bg-ice hover:text-white"

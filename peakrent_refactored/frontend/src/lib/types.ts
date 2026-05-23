@@ -51,13 +51,12 @@ export interface Booking {
 export interface CartItem {
   equipment_id: number; equipment: Equipment;
   quantity: number; size: string | null;
+  start_date: string; end_date: string;
   days: number; subtotal: number;
 }
 
 export interface CartStateData {
   items: CartItem[];
-  start_date: string;
-  end_date: string;
 }
 
 export interface Review {

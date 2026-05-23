@@ -1,5 +1,6 @@
 from datetime import datetime
-from flask import Blueprint, request, jsonify
+
+from flask import Blueprint, jsonify, request
 
 from ..extensions import db
 from ..models import Booking
@@ -8,126 +9,128 @@ from ..services.payment_service import PaymentService
 payments_bp = Blueprint("payments", __name__)
 
 
+def _normalize_booking_ids(payload):
+    booking_ids = payload.get("booking_ids") or []
+    booking_id = payload.get("booking_id")
+
+    normalized = []
+
+    if booking_id and str(booking_id).isdigit():
+        normalized.append(int(booking_id))
+
+    for value in booking_ids:
+        if str(value).isdigit():
+            normalized.append(int(value))
+
+    seen = set()
+    unique_ids = []
+    for value in normalized:
+        if value not in seen:
+            seen.add(value)
+            unique_ids.append(value)
+
+    return unique_ids
+
+
+def _load_bookings(payload):
+    booking_ids = _normalize_booking_ids(payload)
+    bookings = []
+
+    if booking_ids:
+        bookings = Booking.query.filter(Booking.id.in_(booking_ids)).all()
+        bookings.sort(key=lambda booking: booking_ids.index(booking.id))
+
+    return bookings
+
+
+def _attach_payment_to_bookings(bookings, payment_id, method):
+    for booking in bookings:
+        booking.kaspi_order_id = payment_id
+        booking.payment_method = method
+    db.session.commit()
+
+
 @payments_bp.route("/kaspi/init", methods=["POST"])
 def kaspi_init():
-    data       = request.get_json() or {}
-    booking_id = data.get("booking_id")
-    name       = data.get("name", "").strip()
-    phone      = data.get("phone", "").strip()
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    phone = data.get("phone", "").strip()
 
     if not name or not phone:
-        return jsonify({"error": "Поля 'name' и 'phone' обязательны"}), 400
+        return jsonify({"error": "Fields 'name' and 'phone' are required"}), 400
 
-    # Определяем сумму оплаты
-    booking = None
-    amount  = 0
-    if booking_id and str(booking_id).isdigit():
-        booking = Booking.query.get(int(booking_id))
-        if booking:
-            amount = booking.total_price
+    bookings = _load_bookings(data)
+    amount = sum(booking.total_price for booking in bookings)
 
-    # Создаём QR код через PaymentService
-    result = PaymentService.create_kaspi_qr(booking_id, amount, name, phone)
+    if not bookings:
+        return jsonify({"error": "Booking not found"}), 404
 
-    # Привязываем ID платежа к бронированию
-    if booking:
-        booking.kaspi_order_id = result["payment_id"]
-        booking.payment_method = "kaspi"
-        db.session.commit()
+    result = PaymentService.create_kaspi_qr(bookings[0].id, amount, name, phone)
+    _attach_payment_to_bookings(bookings, result["payment_id"], "kaspi")
 
     return jsonify(result), 201
 
 
 @payments_bp.route("/card/init", methods=["POST"])
 def card_init():
-    data       = request.get_json() or {}
-    booking_id = data.get("booking_id")
-    name       = data.get("name", "").strip()
-    phone      = data.get("phone", "").strip()
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    phone = data.get("phone", "").strip()
+    bookings = _load_bookings(data)
 
-    amount  = 0
-    booking = None
-    if booking_id and str(booking_id).isdigit():
-        booking = Booking.query.get(int(booking_id))
-        if booking:
-            amount = booking.total_price
+    if not bookings:
+        return jsonify({"error": "Booking not found"}), 404
 
-    result = PaymentService.create_card_payment(booking_id, amount, name, phone)
-
-    if booking:
-        booking.kaspi_order_id = result["payment_id"]
-        booking.payment_method = "card"
-        db.session.commit()
+    amount = sum(booking.total_price for booking in bookings)
+    result = PaymentService.create_card_payment(bookings[0].id, amount, name, phone)
+    _attach_payment_to_bookings(bookings, result["payment_id"], "card")
 
     return jsonify(result), 201
 
 
 @payments_bp.route("/<string:payment_id>/status", methods=["GET"])
 def payment_status(payment_id):
-    """
-    Проверяет статус платежа.
+    bookings = Booking.query.filter_by(kaspi_order_id=payment_id).all()
 
-    Используется фронтендом для опроса (polling) каждые 3 секунды.
-    Когда статус = "paid" → фронтенд перенаправляет на страницу успеха.
-
-    Path params: payment_id — ID платежа (KASPI-XXXXXXXX)
-
-    Response: {
-        "status": "pending" | "paid" | "expired" | "failed",
-        "paid_at": "2025-02-01T10:15:00" // только если paid
-    }
-    """
-    booking = Booking.query.filter_by(kaspi_order_id=payment_id).first()
-
-    if not booking:
+    if not bookings:
         return jsonify({"status": "pending"}), 200
 
-    if booking.status == "confirmed":
-        return jsonify({"status": "paid", "paid_at": booking.confirmed_at}), 200
+    if all(booking.status == "confirmed" for booking in bookings):
+        paid_at = next((booking.confirmed_at for booking in bookings if booking.confirmed_at), None)
+        return jsonify({"status": "paid", "paid_at": paid_at}), 200
 
-    if booking.status == "cancelled":
+    if all(booking.status == "cancelled" for booking in bookings):
         return jsonify({"status": "expired"}), 200
 
-    # Демо-режим: автоматически подтверждаем через 20 секунд
-    # В продакшне подтверждение приходит через вебхук от Kaspi
-    elapsed = (datetime.utcnow() - booking.created_at).total_seconds()
+    oldest_booking = min(bookings, key=lambda booking: booking.created_at)
+    elapsed = (datetime.utcnow() - oldest_booking.created_at).total_seconds()
+
     if elapsed > 20:
-        booking.status       = "confirmed"
-        booking.confirmed_at = datetime.utcnow().isoformat()
+        paid_at = datetime.utcnow().isoformat()
+        for booking in bookings:
+            booking.status = "confirmed"
+            booking.confirmed_at = paid_at
         db.session.commit()
-        return jsonify({"status": "paid", "paid_at": booking.confirmed_at}), 200
+        return jsonify({"status": "paid", "paid_at": paid_at}), 200
 
     return jsonify({"status": "pending"}), 200
 
 
 @payments_bp.route("/kaspi/webhook", methods=["POST"])
 def kaspi_webhook():
-    """
-    Вебхук от Kaspi — подтверждение успешной оплаты.
-
-    Kaspi отправляет этот запрос когда пользователь оплатил QR код.
-    Мы меняем статус бронирования на "confirmed".
-
-    В продакшне ОБЯЗАТЕЛЬНО проверять подпись вебхука!
-
-    Body (от Kaspi): {
-        "OrderId": "KASPI-A1B2C3D4",
-        "Status": "APPROVED",
-        ...
-    }
-    """
-    data     = request.get_json() or {}
+    data = request.get_json() or {}
     order_id = data.get("OrderId") or data.get("order_id")
-    status   = data.get("Status") or data.get("status")
+    status = data.get("Status") or data.get("status")
 
     if not order_id:
         return jsonify({"status": "ok"}), 200
 
-    booking = Booking.query.filter_by(kaspi_order_id=order_id).first()
-    if booking and status in ("APPROVED", "paid", "success"):
-        booking.status       = "confirmed"
-        booking.confirmed_at = datetime.utcnow().isoformat()
+    bookings = Booking.query.filter_by(kaspi_order_id=order_id).all()
+    if bookings and status in ("APPROVED", "paid", "success"):
+        paid_at = datetime.utcnow().isoformat()
+        for booking in bookings:
+            booking.status = "confirmed"
+            booking.confirmed_at = paid_at
         db.session.commit()
 
-    # Всегда возвращаем 200 OK, чтобы Kaspi не повторял запрос
     return jsonify({"status": "ok"}), 200

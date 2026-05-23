@@ -72,6 +72,9 @@ type ReviewItem = {
 type BrandItem = {
   name: string;
   src: string;
+  focus: LocalizedCopy;
+  blurb: LocalizedCopy;
+  note: LocalizedCopy;
 };
 
 const HERO_IMAGE =
@@ -106,13 +109,111 @@ const TICKER_ITEMS = [
 ];
 
 const BRANDS: BrandItem[] = [
-  { name: "Keen", src: "/brands/keen.svg" },
-  { name: "Marmot", src: "/brands/marmot.png" },
-  { name: "MSR", src: "/brands/msr.png" },
-  { name: "Outventure", src: "/brands/outventure.jpg" },
-  { name: "The North Face", src: "/brands/thenorthface.png" },
-  { name: "Vento", src: "/brands/vento.jpg" },
-  { name: "Volokl", src: "/brands/volokl.png" },
+  {
+    name: "Keen",
+    src: "/brands/keen.svg",
+    focus: { ru: "Треккинговая обувь", kk: "Треккинг аяқ киімі", en: "Trail footwear" },
+    blurb: {
+      ru: "Keen известен удобной треккинговой обувью и устойчивой посадкой для долгих маршрутов.",
+      kk: "Keen ұзақ маршруттарға ыңғайлы әрі тұрақты треккинг аяқ киімімен танымал.",
+      en: "Keen is known for comfortable trail footwear with stable support on longer routes.",
+    },
+    note: {
+      ru: "Используем для хайкинга и лёгких горных выходов.",
+      kk: "Хайкинг пен жеңіл таулы маршруттар үшін қолданамыз.",
+      en: "We use it for hiking and lighter mountain routes.",
+    },
+  },
+  {
+    name: "Marmot",
+    src: "/brands/marmot.png",
+    focus: { ru: "Тёплая экипировка", kk: "Жылы экипировка", en: "Warm outerwear" },
+    blurb: {
+      ru: "Marmot делает надёжные куртки и слои для холодной погоды, ветра и снега.",
+      kk: "Marmot суық, жел және қар жағдайына арналған сенімді күртелер мен қабаттар шығарады.",
+      en: "Marmot builds dependable outerwear layers for cold, wind, and snow.",
+    },
+    note: {
+      ru: "Подходит для зимних склонов и переменчивой погоды Алматы.",
+      kk: "Алматының қысқы беткейлері мен құбылмалы ауа райына сай келеді.",
+      en: "A strong match for winter slopes and shifting Almaty weather.",
+    },
+  },
+  {
+    name: "MSR",
+    src: "/brands/msr.png",
+    focus: { ru: "Кемпинг и горелки", kk: "Кемпинг пен жанарғылар", en: "Camping systems" },
+    blurb: {
+      ru: "MSR специализируется на палатках, горелках и походных решениях для автономных поездок.",
+      kk: "MSR шатыр, жанарғы және автономды сапарларға арналған жорық шешімдеріне маманданған.",
+      en: "MSR specializes in tents, stoves, and backcountry systems for self-sufficient trips.",
+    },
+    note: {
+      ru: "Добавляет надёжность в кемпинговые наборы и ночёвки в горах.",
+      kk: "Кемпинг жиынтықтары мен тауда түнеуге сенімділік қосады.",
+      en: "It adds reliability to camping kits and overnight mountain stays.",
+    },
+  },
+  {
+    name: "Outventure",
+    src: "/brands/outventure.jpg",
+    focus: { ru: "Универсальный outdoor", kk: "Әмбебап outdoor", en: "Versatile outdoor gear" },
+    blurb: {
+      ru: "Outventure закрывает базовые outdoor-сценарии: от кемпинга до простых треккинговых маршрутов.",
+      kk: "Outventure кемпингтен бастап қарапайым треккинг бағыттарына дейінгі негізгі outdoor сценарийлерді жабады.",
+      en: "Outventure covers the outdoor basics, from camping setups to approachable trekking routes.",
+    },
+    note: {
+      ru: "Хороший выбор для проката, где важны универсальность и доступность.",
+      kk: "Жалдауда әмбебаптық пен қолжетімділік маңызды болғанда жақсы таңдау.",
+      en: "A good rental choice when versatility and accessibility matter most.",
+    },
+  },
+  {
+    name: "The North Face",
+    src: "/brands/thenorthface.png",
+    focus: { ru: "Премиум mountain gear", kk: "Премиум mountain gear", en: "Premium mountain gear" },
+    blurb: {
+      ru: "The North Face ассоциируется с премиальной outdoor-экипировкой для гор, холода и активных нагрузок.",
+      kk: "The North Face тауға, суыққа және белсенді жүктемеге арналған премиум outdoor экипировкамен байланысты.",
+      en: "The North Face is associated with premium mountain gear for cold, elevation, and active use.",
+    },
+    note: {
+      ru: "Даёт премиальный уровень в зимней одежде и защитных слоях.",
+      kk: "Қысқы киім мен қорғаныс қабаттарына премиум деңгей береді.",
+      en: "It brings a premium standard to winter clothing and protection layers.",
+    },
+  },
+  {
+    name: "Vento",
+    src: "/brands/vento.jpg",
+    focus: { ru: "Страховка и альпинизм", kk: "Сақтандыру және альпинизм", en: "Climbing safety gear" },
+    blurb: {
+      ru: "Vento выпускает страховочные системы, карабины и снаряжение для высотных и скальных задач.",
+      kk: "Vento биіктік және жартасты бағыттарға арналған сақтандыру жүйелері мен жабдықтар шығарады.",
+      en: "Vento produces harnesses, carabiners, and safety gear for climbing and vertical work.",
+    },
+    note: {
+      ru: "Используем там, где приоритет — безопасность и надёжная фиксация.",
+      kk: "Қауіпсіздік пен сенімді бекіту басым болған жағдайда қолданамыз.",
+      en: "We rely on it where safety and secure support are the top priorities.",
+    },
+  },
+  {
+    name: "Volokl",
+    src: "/brands/volokl.png",
+    focus: { ru: "Горные лыжи", kk: "Тау шаңғысы", en: "Alpine skis" },
+    blurb: {
+      ru: "Volokl — классика горных лыж с акцентом на контроль, стабильность и уверенное ведение на трассе.",
+      kk: "Volokl — трассада бақылау, тұрақтылық және сенімді жүргізуге мән беретін классикалық тау шаңғысы.",
+      en: "Volokl is a classic alpine ski name focused on control, stability, and confident slope handling.",
+    },
+    note: {
+      ru: "Добавляет сильную лыжную линейку в наш зимний прокат.",
+      kk: "Қысқы прокатымызға мықты шаңғы желісін қосады.",
+      en: "It strengthens the ski lineup in our winter rental collection.",
+    },
+  },
 ];
 
 const ACTIVITIES: ActivityItem[] = [
@@ -1463,6 +1564,8 @@ function ReviewsSection({ locale }: { locale: Locale }) {
 }
 
 function BrandsSection({ locale }: { locale: Locale }) {
+  const [activeBrand, setActiveBrand] = useState<BrandItem | null>(null);
+
   return (
     <section className="relative overflow-hidden bg-white pb-20 sm:pb-24">
       <div className="pointer-events-none absolute inset-x-0 top-8 h-40 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.14),transparent_68%)]" />
@@ -1500,13 +1603,15 @@ function BrandsSection({ locale }: { locale: Locale }) {
 
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             {BRANDS.map((brand, index) => (
-              <motion.div
+              <motion.button
                 key={brand.name}
+                type="button"
                 initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.45, delay: index * 0.05 }}
-                className="group relative rounded-[28px] border border-white/80 bg-white/88 p-4 shadow-[0_18px_45px_rgba(10,22,40,0.06)] transition-all duration-300 hover:-translate-y-1.5 hover:border-ice/30 hover:shadow-[0_24px_55px_rgba(14,165,233,0.16)]"
+                onClick={() => setActiveBrand(brand)}
+                className="group relative rounded-[28px] border border-white/80 bg-white/88 p-4 text-left shadow-[0_18px_45px_rgba(10,22,40,0.06)] transition-all duration-300 hover:-translate-y-1.5 hover:border-ice/30 hover:shadow-[0_24px_55px_rgba(14,165,233,0.16)]"
               >
                 <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-ice/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                 <div className="relative h-16 rounded-2xl bg-[linear-gradient(180deg,rgba(248,250,252,0.95),rgba(255,255,255,0.72))] ring-1 ring-slate-100/80">
@@ -1521,12 +1626,76 @@ function BrandsSection({ locale }: { locale: Locale }) {
                 <div className="mt-3 text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 transition-colors duration-300 group-hover:text-slate-500">
                   {brand.name}
                 </div>
-              </motion.div>
+              </motion.button>
             ))}
           </div>
           </div>
         </motion.div>
       </div>
+
+      <AnimatePresence>
+        {activeBrand && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-navy/55 px-4 backdrop-blur-md"
+            onClick={() => setActiveBrand(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 18, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="relative w-full max-w-2xl overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_36px_120px_rgba(10,22,40,0.28)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setActiveBrand(null)}
+                className="absolute right-4 top-4 z-10 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-navy"
+              >
+                {locale === "ru" ? "Закрыть" : locale === "kk" ? "Жабу" : "Close"}
+              </button>
+
+              <div className="grid gap-0 md:grid-cols-[280px_1fr]">
+                <div className="relative border-b border-slate-100 bg-[linear-gradient(160deg,#eef6ff_0%,#f8fbff_55%,#ffffff_100%)] p-8 md:border-b-0 md:border-r">
+                  <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-ice/30 to-transparent" />
+                  <div className="relative flex h-36 items-center justify-center rounded-[28px] bg-white ring-1 ring-slate-100 shadow-[0_20px_55px_rgba(10,22,40,0.08)]">
+                    <Image
+                      src={activeBrand.src}
+                      alt={activeBrand.name}
+                      fill
+                      sizes="280px"
+                      className="object-contain p-8"
+                    />
+                  </div>
+                  <p className="mt-5 text-xs font-semibold uppercase tracking-[0.26em] text-ice-dark">
+                    {copy(locale, activeBrand.focus)}
+                  </p>
+                  <h3 className="mt-3 font-display text-3xl font-black tracking-[-0.04em] text-navy">
+                    {activeBrand.name}
+                  </h3>
+                </div>
+
+                <div className="p-7 sm:p-8">
+                  <p className="text-base leading-8 text-slate-600">
+                    {copy(locale, activeBrand.blurb)}
+                  </p>
+                  <div className="mt-6 rounded-[24px] border border-ice/15 bg-ice-pale/55 px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ice-dark">
+                      {locale === "ru" ? "Почему у нас" : locale === "kk" ? "Неге бізде" : "Why we use it"}
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-slate-600">
+                      {copy(locale, activeBrand.note)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

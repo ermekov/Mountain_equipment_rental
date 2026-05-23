@@ -103,11 +103,11 @@ export const weatherAPI = {
 
 // ── Оплата ────────────────────────────────────────────────────────────────────
 export const paymentAPI = {
-  kaspiInit: (data: { booking_id: string | number; name: string; phone: string }) =>
+  kaspiInit: (data: { booking_id?: string | number; booking_ids?: Array<string | number>; name: string; phone: string }) =>
     apiClient.post<{ payment_id: string; qr_code: string; expires_at: string; amount: number }>(
       "/payments/kaspi/init", data
     ),
-  cardInit: (data: { booking_id: string | number; name: string; phone: string }) =>
+  cardInit: (data: { booking_id?: string | number; booking_ids?: Array<string | number>; name: string; phone: string }) =>
     apiClient.post<{ payment_id: string; payment_url: string }>("/payments/card/init", data),
   status: (paymentId: string) =>
     apiClient.get<{ status: "pending" | "paid" | "expired" | "failed"; paid_at?: string }>(

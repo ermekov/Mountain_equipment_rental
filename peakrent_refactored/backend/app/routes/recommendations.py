@@ -173,9 +173,9 @@ def chat_widget_start():
     user_name = g.user.name if g.user else None
 
     greetings = {
-        "ru": f"Привет{', ' + user_name if user_name else ''}! Я AI-ассистент PeakRent.kz. Помогу подобрать снаряжение, объясню аренду и отвечу на вопросы о сервисе.",
-        "kk": f"Сәлем{', ' + user_name if user_name else ''}! Мен PeakRent.kz AI-ассистентімін. Жабдық таңдауға, броньға және сервис сұрақтарына көмектесемін.",
-        "en": f"Hi{', ' + user_name if user_name else ''}! I'm the PeakRent.kz AI assistant. I can help with gear, booking, and service questions.",
+        "ru": f"Здравствуйте{', ' + user_name if user_name else ''}! Помогу с выбором снаряжения, бронированием и вопросами по сервису.",
+        "kk": f"Сәлем{', ' + user_name if user_name else ''}! Жабдық таңдау, бронь және сервис бойынша көмектесемін.",
+        "en": f"Hi{', ' + user_name if user_name else ''}! I can help with gear, booking, and service questions.",
     }
 
     return jsonify(

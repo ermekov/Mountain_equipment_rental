@@ -1,20 +1,3 @@
-"""
-app/routes/auth.py — Маршруты аутентификации
-
-Blueprint: auth_bp → префикс /api/auth
-
-Маршруты:
-    POST /api/auth/send-otp    — отправить SMS код
-    POST /api/auth/verify-otp  — проверить код и получить JWT
-    GET  /api/auth/me          — получить данные текущего пользователя
-    PUT  /api/auth/me          — обновить профиль
-
-Поток аутентификации:
-    1. POST /send-otp с {phone}       → OTP отправлен на номер
-    2. POST /verify-otp с {phone,code} → получаем {access_token, user}
-    3. Используем access_token в заголовке: Authorization: Bearer <token>
-"""
-
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, current_app, g
 from sqlalchemy import or_
@@ -26,7 +9,6 @@ from ..utils.auth import make_token, login_required
 from ..services.sms_service import SMSService
 from ..services.email_service import EmailService
 
-# Создаём Blueprint
 auth_bp = Blueprint("auth", __name__)
 
 
@@ -54,13 +36,6 @@ def _find_valid_otp(identifier: str, code: str):
 
 @auth_bp.route("/send-otp", methods=["POST"])
 def send_otp():
-    """
-    Отправляет OTP код на email для регистрации.
-
-    Body: { "email": "user@example.com" }
-    Response: { "message": "OTP отправлен" }
-    Dev-mode: { "message": "OTP отправлен", "dev_code": "123456" }
-    """
     data = request.get_json() or {}
     email = _normalize_email(data.get("email", ""))
     phone = _normalize_phone(data.get("phone", "").strip())
@@ -77,13 +52,9 @@ def send_otp():
         if not digits.isdigit() or len(digits) < 10:
             return jsonify({"error": "Неверный формат телефона. Используйте +77XXXXXXXXX"}), 400
 
-    # Генерируем OTP код
     code = SMSService.generate_otp()
-
-    # Инвалидируем предыдущие неиспользованные коды
     OTPCode.query.filter_by(phone=identifier, used=False).delete()
 
-    # Сохраняем новый код (действителен 10 минут)
     otp = OTPCode(
         phone=identifier,
         code=code,
@@ -99,7 +70,6 @@ def send_otp():
     db.session.commit()
     response = {"message": "OTP отправлен на " + identifier}
 
-    # В dev-режиме возвращаем код для удобства тестирования
     if current_app.config.get("DEV_MODE", True):
         response["dev_code"] = code
 
@@ -108,12 +78,6 @@ def send_otp():
 
 @auth_bp.route("/verify-otp", methods=["POST"])
 def verify_otp():
-    """
-    Проверяет OTP код и выдаёт JWT токен.
-
-    Body: { "phone": "+77071234567", "code": "123456" }
-    Response: { "access_token": "eyJ...", "user": {...} }
-    """
     data  = request.get_json() or {}
     phone = _normalize_phone(data.get("phone", "").strip())
     email = _normalize_email(data.get("email", ""))
@@ -123,27 +87,23 @@ def verify_otp():
     if not identifier or not code:
         return jsonify({"error": "Fields 'email/phone' and 'code' are required"}), 400
 
-    # Ищем актуальный неиспользованный код
     otp = _find_valid_otp(identifier, code)
 
     if not otp:
         return jsonify({"error": "Неверный или истёкший код подтверждения"}), 400
 
-    # Помечаем код как использованный
     otp.used = True
 
-    # Ищем или создаём пользователя
     user = User.query.filter_by(email=email).first() if email else User.query.filter_by(phone=phone).first()
     if not user:
         if email:
-            user = User(email=email, name=email.split("@")[0], role="user")
+          user = User(email=email, name=email.split("@")[0], role="user")
         else:
-            user = User(phone=phone, name=phone[-4:])
+          user = User(phone=phone, name=phone[-4:])
         db.session.add(user)
 
     db.session.commit()
 
-    # Создаём JWT токен
     token = make_token(user.id, user.role)
 
     return jsonify({
@@ -237,24 +197,12 @@ def login():
 @auth_bp.route("/me", methods=["GET"])
 @login_required
 def get_me():
-    """
-    Возвращает данные текущего пользователя.
-
-    Headers: Authorization: Bearer <token>
-    Response: { "id": 1, "phone": "...", "name": "...", "role": "user" }
-    """
     return jsonify(g.user.to_dict()), 200
 
 
 @auth_bp.route("/me", methods=["PUT"])
 @login_required
 def update_me():
-    """
-    Обновляет профиль текущего пользователя.
-
-    Body: { "name": "Новое имя" }
-    Response: обновлённый объект пользователя
-    """
     data = request.get_json() or {}
 
     if "name" in data:

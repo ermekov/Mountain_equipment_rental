@@ -8,7 +8,6 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
 
 export const apiClient = axios.create({ baseURL: BASE, timeout: 15000 });
 
-// Прикрепляем JWT токен к каждому запросу
 apiClient.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("pr_token");
@@ -17,7 +16,6 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// -- Авторизация ---
 export const authAPI = {
   sendOtp:   (data: { email?: string; phone?: string }) =>
     apiClient.post<{ message: string; dev_code?: string }>("/auth/send-otp", data),
@@ -31,7 +29,6 @@ export const authAPI = {
   updateMe:  (data: { name?: string }) => apiClient.put<User>("/auth/me", data),
 };
 
-// -- Снаряжение ---
 export const equipmentAPI = {
   list: (params?: {
     category?: string; search?: string; min_price?: number;
@@ -54,7 +51,6 @@ export const favoriteAPI = {
   remove: (equipmentId: number) => apiClient.delete(`/equipment/${equipmentId}/favorite`),
 };
 
-// -- Бронирования ---
 export const bookingAPI = {
   create: (data: any) => apiClient.post<Booking>("/bookings", data),
   list:   ()           => apiClient.get<Booking[]>("/bookings/my"),
@@ -62,7 +58,6 @@ export const bookingAPI = {
   cancel: (id: number) => apiClient.delete(`/bookings/${id}`),
 };
 
-// -- Рекомендации ---
 export const recommendAPI = {
   get: (data: {
     activity?: string; city?: string; level?: string;
@@ -74,7 +69,6 @@ export const recommendAPI = {
     apiClient.get<Equipment[]>("/recommendations/related", { params: { equipment_id, limit } }),
 };
 
-// -- AI чат ---
 export const aiAPI = {
   chat: (data: {
     messages: Array<{ role: "user" | "assistant"; content: string }>;
@@ -85,14 +79,12 @@ export const aiAPI = {
     apiClient.post<{ suggestion: string }>("/ai/suggest", data),
 };
 
-// ── Отзывы ────────────────────────────────────────────────────────────────────
 export const reviewAPI = {
   list:   (equipment_id: number) => apiClient.get<Review[]>(`/reviews/${equipment_id}`),
   create: (data: { equipment_id: number; rating: number; comment?: string; booking_id?: number }) =>
     apiClient.post<Review>("/reviews", data),
 };
 
-// ── Погода ────────────────────────────────────────────────────────────────────
 export const weatherAPI = {
   current: (city = "Алматы") =>
     apiClient.get<{
@@ -101,7 +93,6 @@ export const weatherAPI = {
     }>("/weather", { params: { city } }),
 };
 
-// ── Оплата ────────────────────────────────────────────────────────────────────
 export const paymentAPI = {
   kaspiInit: (data: { booking_id?: string | number; booking_ids?: Array<string | number>; name: string; phone: string }) =>
     apiClient.post<{ payment_id: string; qr_code: string; expires_at: string; amount: number }>(
@@ -113,9 +104,10 @@ export const paymentAPI = {
     apiClient.get<{ status: "pending" | "paid" | "expired" | "failed"; paid_at?: string }>(
       `/payments/${paymentId}/status`
     ),
+  simulate: (paymentId: string) =>
+    apiClient.post<{ status: "paid"; paid_at?: string }>(`/payments/${paymentId}/simulate`),
 };
 
-// ── Администратор ─────────────────────────────────────────────────────────────
 export const adminAPI = {
   stats:         () => apiClient.get<any>("/admin/stats"),
   bookings:      (params?: { status?: string }) => apiClient.get<Booking[]>("/admin/bookings", { params }),

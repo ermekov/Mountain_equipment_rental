@@ -48,7 +48,6 @@ export function Navbar({ locale }: { locale: Locale }) {
       )}>
         <div className="container-page">
           <div className="flex items-center justify-between h-14">
-            {/* Логотип */}
             <Link href={`/${l}`} className="flex items-center gap-2">
               <Mountain className="w-5 h-5 text-ice" />
               <span className="font-display font-extrabold text-base text-white">
@@ -56,7 +55,6 @@ export function Navbar({ locale }: { locale: Locale }) {
               </span>
             </Link>
 
-            {/* Навигация десктоп */}
             <div className="hidden md:flex items-center gap-1">
               {links.map((link) => (
                 <Link key={link.href} href={link.href}
@@ -71,9 +69,7 @@ export function Navbar({ locale }: { locale: Locale }) {
               ))}
             </div>
 
-            {/* Правая сторона */}
             <div className="flex items-center gap-2">
-              {/* Переключатель языка */}
               <div className="hidden sm:flex items-center gap-0.5 bg-white/10 rounded-lg p-0.5">
                 {LOCALES.map((lc) => (
                   <button key={lc.code} onClick={() => switchLocale(lc.code)}
@@ -86,7 +82,6 @@ export function Navbar({ locale }: { locale: Locale }) {
                 ))}
               </div>
 
-              {/* Корзина */}
               <Link
                 href={`/${l}/cart`}
                 className={cn(
@@ -100,7 +95,6 @@ export function Navbar({ locale }: { locale: Locale }) {
                 <span>{cartCount}</span>
               </Link>
 
-              {/* Авторизация */}
               {user ? (
                 <div className="flex items-center gap-1">
                   <Link href={`/${l}/profile`}
@@ -132,7 +126,6 @@ export function Navbar({ locale }: { locale: Locale }) {
                 </Link>
               )}
 
-              {/* Кнопка мобильного меню */}
               <button onClick={() => setMenuOpen(!menuOpen)}
                 className="md:hidden text-white/70 hover:text-white p-1.5">
                 {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -141,7 +134,6 @@ export function Navbar({ locale }: { locale: Locale }) {
           </div>
         </div>
 
-        {/* Мобильное меню */}
         {menuOpen && (
           <div className="md:hidden border-t border-white/10 py-3">
             <div className="container-page flex flex-col gap-1">

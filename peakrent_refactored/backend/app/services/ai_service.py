@@ -204,9 +204,9 @@ class AIService:
 
         try:
             response = client.chat.completions.create(
-                model=current_app.config["OPENAI_MODEL"],
+                model=current_app.config.get("OPENAI_MODEL", "gpt-5-mini"),
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=500,
+                max_completion_tokens=500,
                 temperature=0.45,
                 timeout=10,
             )
@@ -229,7 +229,13 @@ class AIService:
 
         recent_messages = messages[-10:]
         profile = AIService._extract_chat_context(recent_messages)
-        catalog_context = AIService._catalog_context(city)
+        user_text = " ".join(message.get("content", "") for message in recent_messages if message.get("role") == "user")
+        catalog_context = AIService._catalog_context(
+            city=city,
+            activity=profile.get("activity"),
+            query_text=user_text,
+            limit=24,
+        )
 
         system_prompt = (
             "You are PeakRent.kz AI rental advisor.\n"
@@ -242,6 +248,7 @@ class AIService:
             "- prefer currently available items\n"
             "- include one safety tip\n"
             "- include one concrete next action (open catalog, book, choose dates)\n"
+            "- when you mention a site section, format it as a markdown link like [каталог](/catalog) or [корзина](/cart)\n"
             "- do not invent inventory, prices, or services\n"
             "- be concise: 3-5 short sentences\n"
             f"Known user context: {json.dumps(profile, ensure_ascii=False)}\n"
@@ -386,17 +393,75 @@ class AIService:
         }
 
     @staticmethod
-    def _catalog_context(city: str) -> list:
-        items = Equipment.query.filter_by(is_active=True).limit(20).all()
+    def _catalog_context(
+        city: str,
+        activity: str | None = None,
+        query_text: str | None = None,
+        limit: int = 20,
+    ) -> list:
+        activity_slug = (activity or "").lower()
+        activity_tags = set(ACTIVITY_TAGS.get(activity_slug, []))
+        query_terms = {
+            token.strip().lower()
+            for token in re.split(r"[^a-zA-Zа-яА-Яәіңғүұқөһ0-9]+", query_text or "")
+            if len(token.strip()) >= 3
+        }
+
+        scored_items = []
+        for item in Equipment.query.filter_by(is_active=True).all():
+            item_tags = [tag.strip().lower() for tag in json.loads(item.tags or "[]")]
+            haystack = " ".join(
+                filter(
+                    None,
+                    [
+                        item.name_ru,
+                        item.name_kk,
+                        item.name_en,
+                        item.description_ru,
+                        item.description_kk,
+                        item.description_en,
+                        item.category.name_ru if item.category else "",
+                        item.category.slug if item.category else "",
+                        " ".join(item_tags),
+                    ],
+                )
+            ).lower()
+
+            score = 0
+            if item.is_featured:
+                score += 3
+            if activity_slug and item.category and item.category.slug == activity_slug:
+                score += 6
+            if activity_tags:
+                score += len(activity_tags.intersection(item_tags)) * 2
+            if query_terms:
+                score += sum(2 for term in query_terms if term in haystack)
+            if item.stock > 0:
+                score += 1
+
+            scored_items.append((score, item))
+
+        scored_items.sort(key=lambda row: (row[0], row[1].is_featured, row[1].stock), reverse=True)
+        items = [item for _, item in scored_items[:limit]]
         result = []
         for item in items:
             result.append(
                 {
                     "name": item.name_ru,
+                    "name_kk": item.name_kk,
+                    "name_en": item.name_en,
                     "slug": item.slug,
                     "price_per_day": item.price_per_day,
                     "stock": item.stock,
-                    "tags": json.loads(item.tags or "[]")[:4],
+                    "deposit_amount": item.deposit_amount,
+                    "gender": item.gender or "unisex",
+                    "sizes": json.loads(item.sizes or "[]")[:8],
+                    "size_type": item.size_type,
+                    "category": item.category.name_ru if item.category else "",
+                    "category_slug": item.category.slug if item.category else "",
+                    "description_ru": (item.description_ru or "")[:240],
+                    "tags": json.loads(item.tags or "[]")[:6],
+                    "is_featured": item.is_featured,
                     "city_context": city,
                 }
             )
@@ -407,7 +472,7 @@ class AIService:
         try:
             from openai import OpenAI
 
-            api_key = current_app.config.get("OPENAI_API_KEY", "")
+            api_key = current_app.config.get("OPENAI_API_KEY", "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")
             if not api_key:
                 return None
             return OpenAI(api_key=api_key)
@@ -428,9 +493,9 @@ class AIService:
 
         try:
             response = client.chat.completions.create(
-                model=current_app.config["OPENAI_MODEL"],
+                model=current_app.config.get("OPENAI_MODEL", "gpt-5-mini"),
                 messages=full_messages,
-                max_tokens=700,
+                max_completion_tokens=700,
                 temperature=0.55,
                 timeout=15,
             )

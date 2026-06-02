@@ -379,9 +379,9 @@ function CheckoutInner({ locale }: { locale: Locale }) {
               <h2 className="mb-2 text-center font-display text-xl font-extrabold text-navy">
                 {payStatus === "paid"
                   ? l === "ru"
-                    ? "Оплата прошла!"
+                    ? "Оплата принята!"
                     : l === "kk"
-                    ? "Төлем өтті!"
+                    ? "Төлем қабылданды!"
                     : "Paid!"
                   : l === "ru"
                   ? "Ожидание оплаты"
@@ -412,10 +412,22 @@ function CheckoutInner({ locale }: { locale: Locale }) {
                       {l === "ru" ? "Ожидание оплаты..." : l === "kk" ? "Төлем күтілуде..." : "Waiting..."}
                     </div>
                     <button
-                      onClick={() => {
-                        setPayStatus("paid");
-                        clearCart();
-                        setTimeout(() => router.push(`/${l}/booking/${currentBookingIds[0] ?? "0"}/success`), 1500);
+                      onClick={async () => {
+                        if (!payId) return;
+                        try {
+                          await paymentAPI.simulate(payId);
+                          setPayStatus("paid");
+                          clearCart();
+                          setTimeout(() => router.push(`/${l}/booking/${currentBookingIds[0] ?? "0"}/success`), 1500);
+                        } catch {
+                          toast.error(
+                            l === "ru"
+                              ? "Не удалось симулировать оплату"
+                              : l === "kk"
+                              ? "Төлемді имитациялау сәтсіз аяқталды"
+                              : "Failed to simulate payment"
+                          );
+                        }
                       }}
                       className="btn-primary text-sm"
                     >

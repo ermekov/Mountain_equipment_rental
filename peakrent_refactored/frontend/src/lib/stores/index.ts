@@ -3,7 +3,6 @@ import { persist } from "zustand/middleware";
 import type { User, Equipment, CartItem } from "@/lib/types";
 import { daysBetween } from "@/lib/utils";
 
-// -- Auth Store ---
 interface AuthStore {
   user:  User | null;
   token: string | null;
@@ -39,7 +38,6 @@ export const useAuthStore = create<AuthStore>()(
   )
 );
 
-// -- Cart / Booking Store --
 interface CartStore {
   items:      CartItem[];
   addItem:    (equipment: Equipment, qty: number, size: string | null, start_date: string, end_date: string) => void;
@@ -55,9 +53,9 @@ const getSafeDays = (start_date: string, end_date: string) =>
 const recalcItem = (item: CartItem) => {
   const days = getSafeDays(item.start_date, item.end_date);
   return {
-  ...item,
-  days,
-  subtotal: item.equipment.price_per_day * item.quantity * days,
+    ...item,
+    days,
+    subtotal: item.equipment.price_per_day * item.quantity * days,
   };
 };
 

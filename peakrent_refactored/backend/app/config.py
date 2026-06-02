@@ -1,24 +1,7 @@
-"""
-app/config.py — Конфигурация приложения
-
-Принцип разделения конфигураций:
-    Config      — базовая конфигурация (для всех режимов)
-    DevConfig   — режим разработки (debug=True, подробные ошибки)
-    ProdConfig  — продакшн (debug=False, строгая безопасность)
-
-Все секретные данные читаются из переменных окружения (.env файл).
-Никогда не храни пароли/ключи прямо в коде!
-"""
-
 import os
 
 
 class Config:
-    """
-    Базовая конфигурация — общие настройки для всех режимов.
-    Читает значения из переменных окружения (файл .env).
-    """
-
     # ── Безопасность ──────────────────────────────────────────────────────────
     # SECRET_KEY используется Flask для подписи cookies и сессий
     SECRET_KEY = os.environ.get("SECRET_KEY", "peakrent-secret-key-change-in-production")
@@ -50,7 +33,7 @@ class Config:
 
     # ── OpenAI GPT-4o-mini ────────────────────────────────────────────────────
     # Используется для генерации персональных объяснений рекомендаций
-    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "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")
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "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")
     OPENAI_MODEL   = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
     # ── OpenWeatherMap API ────────────────────────────────────────────────────

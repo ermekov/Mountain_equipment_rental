@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from flask import Blueprint, request, jsonify, g
 
 from ..extensions import db
@@ -9,12 +9,23 @@ from ..services.email_service import EmailService
 bookings_bp = Blueprint("bookings", __name__)
 
 
+def _normalize_booking_signature(items):
+    normalized = []
+    for item in items:
+        equipment_id = item["equipment"].id if isinstance(item, dict) else item.equipment_id
+        quantity = item["quantity"] if isinstance(item, dict) else item.quantity
+        size = (item["size"] if isinstance(item, dict) else item.size) or ""
+        price_per_day = item["price_per_day"] if isinstance(item, dict) else item.price_per_day
+        subtotal = item["subtotal"] if isinstance(item, dict) else item.subtotal
+        normalized.append((equipment_id, quantity, size, price_per_day, subtotal))
+    return sorted(normalized)
+
+
 @bookings_bp.route("", methods=["POST"])
 @login_required
 def create_booking():
     data = request.get_json() or {}
 
-    # Проверяем обязательные поля
     required_fields = ["items", "start_date", "end_date", "payment_method"]
     for field in required_fields:
         if not data.get(field):
@@ -33,11 +44,7 @@ def create_booking():
         return jsonify({"error": "Нельзя бронировать прошедшие даты"}), 400
 
     days = (end_date - start_date).days
-
-    # Бронирование доступно только авторизованным пользователям
     user = g.user
-
-    # Валидируем позиции и рассчитываем стоимость
     total_price = 0
     items_to_create = []
 
@@ -46,12 +53,10 @@ def create_booking():
         quantity     = max(1, int(item_data.get("quantity", 1)))
         size         = item_data.get("size")
 
-        # Проверяем существование снаряжения
         equipment = Equipment.query.get(equipment_id)
         if not equipment or not equipment.is_active:
             return jsonify({"error": f"Снаряжение #{equipment_id} не найдено"}), 404
 
-        # Проверяем доступное количество
         available = equipment.available_stock(start_date, end_date)
         if available < quantity:
             return jsonify({
@@ -68,13 +73,41 @@ def create_booking():
             "subtotal":     subtotal,
         })
 
-    # Добавляем стоимость страховки (1500₸ в день за единицу)
     if data.get("with_insurance"):
         total_items = sum(i["quantity"] for i in items_to_create)
         insurance_cost = 1500 * days * total_items
         total_price += insurance_cost
 
-    # Создаём бронирование
+    pending_cutoff = datetime.utcnow() - timedelta(hours=24)
+    expected_signature = _normalize_booking_signature(items_to_create)
+    existing_bookings = (
+        Booking.query
+        .filter(
+            Booking.user_id == user.id,
+            Booking.start_date == start_date,
+            Booking.end_date == end_date,
+            Booking.status == "pending",
+            Booking.created_at >= pending_cutoff,
+        )
+        .all()
+    )
+
+    for existing_booking in existing_bookings:
+        if existing_booking.total_price != total_price:
+            continue
+        if len(existing_booking.items) != len(items_to_create):
+            continue
+        if _normalize_booking_signature(existing_booking.items) != expected_signature:
+            continue
+
+        if data.get("notes") and existing_booking.notes != data.get("notes", ""):
+            existing_booking.notes = data.get("notes", "")
+        if data["payment_method"] and existing_booking.payment_method != data["payment_method"]:
+            existing_booking.payment_method = data["payment_method"]
+
+        db.session.commit()
+        return jsonify(existing_booking.to_dict()), 200
+
     booking = Booking(
         user_id=user.id,
         start_date=start_date,
@@ -85,9 +118,8 @@ def create_booking():
         notes=data.get("notes", ""),
     )
     db.session.add(booking)
-    db.session.flush()  # Получаем booking.id
+    db.session.flush()
 
-    # Создаём позиции бронирования
     for item_data in items_to_create:
         booking_item = BookingItem(
             booking_id=booking.id,
@@ -99,7 +131,6 @@ def create_booking():
         )
         db.session.add(booking_item)
 
-    # Наличные оплачиваются при получении — сразу подтверждаем
     if data["payment_method"] == "cash":
         booking.status = "confirmed"
 
@@ -117,10 +148,6 @@ def create_booking():
 @bookings_bp.route("/my", methods=["GET"])
 @login_required
 def my_bookings():
-    """
-    Возвращает список бронирований текущего пользователя.
-    Отсортированы от новых к старым.
-    """
     bookings = (
         Booking.query
         .filter_by(user_id=g.user.id)
@@ -133,15 +160,8 @@ def my_bookings():
 @bookings_bp.route("/<int:booking_id>", methods=["GET"])
 @login_required
 def get_booking(booking_id):
-    """
-    Возвращает детали конкретного бронирования.
-
-    Пользователь может видеть только свои бронирования.
-    Администратор может видеть любые.
-    """
     booking = Booking.query.get_or_404(booking_id)
 
-    # Проверяем права доступа
     if booking.user_id != g.user.id and g.user.role != "admin":
         return jsonify({"error": "Доступ запрещён"}), 403
 
@@ -151,19 +171,11 @@ def get_booking(booking_id):
 @bookings_bp.route("/<int:booking_id>", methods=["DELETE"])
 @login_required
 def cancel_booking(booking_id):
-    """
-    Отменяет бронирование.
-
-    Можно отменить только бронирования со статусом pending или confirmed.
-    Пользователь может отменить только свои бронирования.
-    """
     booking = Booking.query.get_or_404(booking_id)
 
-    # Проверяем права доступа
     if booking.user_id != g.user.id and g.user.role != "admin":
         return jsonify({"error": "Доступ запрещён"}), 403
 
-    # Проверяем, можно ли отменить
     if booking.status not in ("pending", "confirmed"):
         return jsonify({
             "error": f"Нельзя отменить бронирование со статусом '{booking.status}'"

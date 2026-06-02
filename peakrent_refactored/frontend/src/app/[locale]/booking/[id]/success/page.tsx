@@ -25,12 +25,14 @@ export default async function SuccessPage({
           </div>
 
           <h1 className="font-display text-2xl font-extrabold text-navy mb-2">
-            {l === "ru" ? "Бронирование подтверждено!" : l === "kk" ? "Бронь расталды!" : "Booking Confirmed!"}
+            {l === "ru" ? "Оплата принята!" : l === "kk" ? "Төлем қабылданды!" : "Payment received!"}
           </h1>
           <p className="text-slate-500 text-sm mb-6">
             {l === "ru"
-              ? "SMS с QR-кодом отправлено на ваш номер"
-              : l === "kk" ? "QR коды бар SMS телефоныңызға жіберілді" : "SMS with QR code sent to your phone"}
+              ? "Бронь сохранена и теперь ожидает подтверждения менеджером"
+              : l === "kk"
+              ? "Бронь сақталды, енді менеджердің растауын күтеді"
+              : "Your booking is saved and now waiting for manager confirmation"}
           </p>
 
           <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden text-left mb-6">

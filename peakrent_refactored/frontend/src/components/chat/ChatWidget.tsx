@@ -16,9 +16,117 @@
  *   - Файл жіберу (суреттер арқылы жабдықты анықтау)
  */
 
+import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
+const LOCALE_PREFIX_RE = /^\/(ru|kk|en)(?=\/|$)/i;
+const INTERNAL_ROUTE_RE =
+  /\/(?:catalog|ai|checkout|profile|cart|favorites|auth|equipment\/[A-Za-z0-9-]+)(?:\?[A-Za-z0-9=&_-]+)?/g;
+
+function normalizeChatHref(href: string, locale: string): string {
+  if (/^(https?:\/\/|mailto:|tel:)/i.test(href)) {
+    return href;
+  }
+
+  if (!href.startsWith("/")) {
+    return href;
+  }
+
+  if (href === "/") {
+    return `/${locale}`;
+  }
+
+  if (LOCALE_PREFIX_RE.test(href)) {
+    return href;
+  }
+
+  return `/${locale}${href}`;
+}
+
+function renderChatLink(
+  label: string,
+  href: string,
+  locale: string,
+  isUserMessage: boolean,
+  key: string
+) {
+  const normalizedHref = normalizeChatHref(href, locale);
+  const linkClassName = isUserMessage
+    ? "font-medium underline underline-offset-2 text-white"
+    : "font-medium underline underline-offset-2 text-[#0284C7] transition-colors hover:text-[#0EA5E9]";
+
+  if (/^(https?:\/\/|mailto:|tel:)/i.test(normalizedHref)) {
+    return (
+      <a
+        key={key}
+        href={normalizedHref}
+        target="_blank"
+        rel="noreferrer"
+        className={linkClassName}
+      >
+        {label}
+      </a>
+    );
+  }
+
+  return (
+    <Link key={key} href={normalizedHref} className={linkClassName}>
+      {label}
+    </Link>
+  );
+}
+
+function renderRouteText(text: string, locale: string, isUserMessage: boolean): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  INTERNAL_ROUTE_RE.lastIndex = 0;
+
+  while ((match = INTERNAL_ROUTE_RE.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    nodes.push(
+      renderChatLink(match[0], match[0], locale, isUserMessage, `route-${match.index}-${match[0]}`)
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.length > 0 ? nodes : [text];
+}
+
+function renderMessageLine(text: string, locale: string, isUserMessage: boolean): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const markdownLinkRe = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = markdownLinkRe.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(
+        ...renderRouteText(text.slice(lastIndex, match.index), locale, isUserMessage)
+      );
+    }
+
+    nodes.push(
+      renderChatLink(match[1], match[2], locale, isUserMessage, `md-${match.index}-${match[2]}`)
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(...renderRouteText(text.slice(lastIndex), locale, isUserMessage));
+  }
+
+  return nodes.length > 0 ? nodes : [text];
+}
 
 // ── Типтер ────────────────────────────────────────────────────────────────
 interface Message {
@@ -42,6 +150,7 @@ export default function ChatWidget({ locale = "ru" }: ChatWidgetProps) {
 
   const messagesEndRef = useRef<HTMLDivElement>(null); // соңғы хабарға scroll
   const inputRef       = useRef<HTMLInputElement>(null);
+  const hasUserMessages = messages.some(message => message.role === "user");
 
   // ── Жауап алынғанда автоматты scroll ──────────────────────────────────
   useEffect(() => {
@@ -76,8 +185,8 @@ export default function ChatWidget({ locale = "ru" }: ChatWidgetProps) {
     } catch {
       addBotMessage(
         locale === "kk"
-          ? "Сәлем! PeakRent.kz ассистентімін. Қалай көмектесемін?"
-          : "Привет! Я ассистент PeakRent.kz. Чем могу помочь?"
+          ? "Сәлем! Қандай жабдық керек екенін айтыңыз, көмектесемін."
+          : "Здравствуйте! Напишите, что вы ищете, и я помогу с выбором."
       );
     }
   }
@@ -121,7 +230,7 @@ export default function ChatWidget({ locale = "ru" }: ChatWidgetProps) {
       const data = await res.json();
 
       addBotMessage(data.reply);
-      setQuickReplies(data.quick_replies || []);
+      setQuickReplies([]);
 
       // Виджет жабық болса — оқылмаған белгісі
       if (!isOpen) setHasUnread(true);
@@ -178,7 +287,7 @@ export default function ChatWidget({ locale = "ru" }: ChatWidgetProps) {
                 🤖
               </div>
               <div>
-                <p className="text-white font-semibold text-sm">AI Ассистент</p>
+                <p className="text-white font-semibold text-sm">PeakRent Чат</p>
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                   <p className="text-white/60 text-xs">
@@ -221,10 +330,10 @@ export default function ChatWidget({ locale = "ru" }: ChatWidgetProps) {
                       : "bg-white text-gray-800 shadow-sm border border-gray-100 rounded-tl-sm"
                   }`}>
                     {/* Жол үзілімдерін сақтаймыз */}
-                    {msg.content.split("\n").map((line, i) => (
+                    {msg.content.split("\n").map((line, i, lines) => (
                       <span key={i}>
-                        {line}
-                        {i < msg.content.split("\n").length - 1 && <br />}
+                        {renderMessageLine(line, locale, msg.role === "user")}
+                        {i < lines.length - 1 && <br />}
                       </span>
                     ))}
                   </div>
@@ -258,7 +367,7 @@ export default function ChatWidget({ locale = "ru" }: ChatWidgetProps) {
           </div>
 
           {/* Жылдам жауаптар батырмалары */}
-          {quickReplies.length > 0 && !isTyping && (
+          {!hasUserMessages && quickReplies.length > 0 && !isTyping && (
             <div className="px-3 py-2 bg-white border-t border-gray-100 flex flex-wrap gap-1.5 flex-shrink-0">
               {quickReplies.map((reply, idx) => (
                 <button
@@ -282,10 +391,10 @@ export default function ChatWidget({ locale = "ru" }: ChatWidgetProps) {
               onKeyDown={handleKeyDown}
               placeholder={
                 locale === "kk"
-                  ? "Сұрағыңызды жазыңыз..."
+                  ? "Хабарлама жазыңыз..."
                   : locale === "en"
-                  ? "Type your question..."
-                  : "Напишите вопрос..."
+                  ? "Write a message..."
+                  : "Напишите сообщение..."
               }
               disabled={isTyping}
               className="flex-1 bg-gray-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] disabled:opacity-50 placeholder:text-gray-400"
@@ -306,7 +415,7 @@ export default function ChatWidget({ locale = "ru" }: ChatWidgetProps) {
           {/* Аяқ жазуы */}
           <div className="px-3 pb-2 bg-white text-center">
             <p className="text-xs text-gray-400">
-              PeakRent.kz · AI powered by GPT-4o-mini
+              PeakRent.kz
             </p>
           </div>
         </div>
@@ -320,7 +429,7 @@ export default function ChatWidget({ locale = "ru" }: ChatWidgetProps) {
             ? "bg-gray-700 hover:bg-gray-800"
             : "bg-gradient-to-br from-[#0A1628] to-[#0EA5E9] hover:shadow-[#0EA5E9]/30 hover:shadow-xl"
         }`}
-        title={locale === "kk" ? "AI Ассистент" : "AI Ассистент"}
+        title={locale === "kk" ? "PeakRent чаты" : "Чат PeakRent"}
       >
         {/* Оқылмаған хабар белгісі */}
         {hasUnread && !isOpen && (

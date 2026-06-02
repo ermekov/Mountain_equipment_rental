@@ -50,6 +50,17 @@ def _attach_payment_to_bookings(bookings, payment_id, method):
     db.session.commit()
 
 
+def _mark_bookings_paid(bookings):
+    paid_at = datetime.utcnow().isoformat()
+
+    for booking in bookings:
+        if not booking.confirmed_at:
+            booking.confirmed_at = paid_at
+
+    db.session.commit()
+    return paid_at
+
+
 @payments_bp.route("/kaspi/init", methods=["POST"])
 def kaspi_init():
     data = request.get_json() or {}
@@ -95,25 +106,34 @@ def payment_status(payment_id):
     if not bookings:
         return jsonify({"status": "pending"}), 200
 
+    if all(booking.status == "cancelled" for booking in bookings):
+        return jsonify({"status": "expired"}), 200
+
+    if all(booking.confirmed_at or booking.status in ("confirmed", "completed") for booking in bookings):
+        paid_at = next((booking.confirmed_at for booking in bookings if booking.confirmed_at), None)
+        return jsonify({"status": "paid", "paid_at": paid_at}), 200
+
     if all(booking.status == "confirmed" for booking in bookings):
         paid_at = next((booking.confirmed_at for booking in bookings if booking.confirmed_at), None)
         return jsonify({"status": "paid", "paid_at": paid_at}), 200
 
-    if all(booking.status == "cancelled" for booking in bookings):
-        return jsonify({"status": "expired"}), 200
-
-    oldest_booking = min(bookings, key=lambda booking: booking.created_at)
-    elapsed = (datetime.utcnow() - oldest_booking.created_at).total_seconds()
-
-    if elapsed > 20:
-        paid_at = datetime.utcnow().isoformat()
-        for booking in bookings:
-            booking.status = "confirmed"
-            booking.confirmed_at = paid_at
-        db.session.commit()
-        return jsonify({"status": "paid", "paid_at": paid_at}), 200
-
     return jsonify({"status": "pending"}), 200
+
+
+@payments_bp.route("/<string:payment_id>/simulate", methods=["POST"])
+def simulate_payment(payment_id):
+    """
+    Demo-only helper:
+    Явно отмечает оплату, но оставляет бронь в pending до подтверждения менеджером.
+    """
+    bookings = Booking.query.filter_by(kaspi_order_id=payment_id).all()
+
+    if not bookings:
+        return jsonify({"error": "Payment not found"}), 404
+
+    paid_at = _mark_bookings_paid(bookings)
+
+    return jsonify({"status": "paid", "paid_at": paid_at}), 200
 
 
 @payments_bp.route("/kaspi/webhook", methods=["POST"])
@@ -127,10 +147,6 @@ def kaspi_webhook():
 
     bookings = Booking.query.filter_by(kaspi_order_id=order_id).all()
     if bookings and status in ("APPROVED", "paid", "success"):
-        paid_at = datetime.utcnow().isoformat()
-        for booking in bookings:
-            booking.status = "confirmed"
-            booking.confirmed_at = paid_at
-        db.session.commit()
+        _mark_bookings_paid(bookings)
 
     return jsonify({"status": "ok"}), 200

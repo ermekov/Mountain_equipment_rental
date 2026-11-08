@@ -8,7 +8,7 @@ Mountain gear rental service for Almaty: catalog, booking and payment, AI gear r
 
 - Catalog with categories, filters, product pages, sizes and availability for the chosen dates
 - Cart, booking and a Kaspi QR or card payment flow (demo mode without merchant keys)
-- Sign-in with a one-time code (SMS through smsapi.kz or email) and JWT; client, manager and admin roles
+- Registration with a one-time code sent by email (SMTP), sign-in with email or phone and password, JWT; client, manager and admin roles
 - AI gear picker: asks for the activity and level, checks the weather in Almaty and builds a kit
 - AI chat widget that recommends only items that exist in the catalog
 - Reviews, favorites and "often rented together"
@@ -25,7 +25,7 @@ flowchart LR
     A --> D[("PostgreSQL<br/>SQLAlchemy models")]
     S --> O["OpenAI API<br/>GPT-4o-mini"]
     S --> W[OpenWeatherMap]
-    S --> M["smsapi.kz / SMTP"]
+    S --> M["SMTP<br/>email codes"]
     S --> K["Kaspi QR<br/>demo mode"]
 ```
 
@@ -47,7 +47,7 @@ Code: [`ai_service.py`](peakrent_refactored/backend/app/services/ai_service.py).
 | --- | --- |
 | Backend | Python, Flask 3.1, Flask-SQLAlchemy, PostgreSQL, PyJWT, Flask-CORS, OpenAI SDK, requests, gunicorn |
 | Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS, React Query, Zustand, next-intl, react-hook-form, zod |
-| Integrations | OpenAI (GPT-4o-mini), OpenWeatherMap, smsapi.kz, SMTP, Kaspi QR (demo) |
+| Integrations | OpenAI (GPT-4o-mini), OpenWeatherMap, SMTP, Kaspi QR (demo) |
 
 ## Run locally
 
@@ -82,7 +82,7 @@ Demo accounts from `seed.py` (local data only):
 | Admin | +77000000000 | admin@peakrent.kz / admin123 |
 | Manager | +77000000001 | manager@peakrent.kz / manager123 |
 
-With `DEV_OTP_BYPASS=true` any phone number signs in with the code `123456`.
+With `DEV_OTP_BYPASS=true` (the default) no email is sent and the registration code is always `123456`. To send real codes, set it to `false` and fill in the `SMTP_*` variables.
 
 ## Environment variables
 
@@ -92,8 +92,8 @@ With `DEV_OTP_BYPASS=true` any phone number signs in with the code `123456`.
 | `SECRET_KEY`, `JWT_SECRET` | signing sessions and tokens; set your own values in production |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | AI tips and chat; without a key the app uses rule-based texts |
 | `OPENWEATHER_API_KEY` | live weather; without it the app uses demo weather |
-| `DEV_OTP_BYPASS` | `true` makes every one-time code `123456` |
-| `SMSAPI_TOKEN`, `SMTP_*` | real code delivery by SMS or email |
+| `DEV_OTP_BYPASS` | `true`: no email is sent and every code is `123456` |
+| `SMTP_*` | sending registration codes by email |
 | `KASPI_*` | real Kaspi payments |
 | `NEXT_PUBLIC_API_URL` | frontend: backend address, `http://localhost:5000/api` by default |
 
@@ -122,7 +122,7 @@ peakrent_refactored/
 │       ├── config.py       # settings from environment variables
 │       ├── models/         # User, Equipment, Category, Booking, Review, Favorite
 │       ├── routes/         # REST API blueprints
-│       ├── services/       # AI, chat, weather, payments, SMS and email
+│       ├── services/       # AI, chat, weather, payments, email codes
 │       └── utils/auth.py   # JWT and role decorators
 └── frontend/
     └── src/
